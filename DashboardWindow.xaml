@@ -46,7 +46,7 @@
                     
                     <!-- Platzhalter-TextBlock für die TextBox -->
                     <TextBlock Name="PlaceholderTextBlock"
-                               Text="1234"
+                               Text="XXXX"
                                FontFamily="Calibri"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"
@@ -82,7 +82,7 @@
                              TextAlignment="Center"
                              IsEnabled="False"/>
                     <TextBlock Name="StartTimeTextBlock"
-                               Text="--:--:--"
+                               Text="--:--"
                                FontFamily="Calibri"
                                VerticalAlignment="Center"
                                HorizontalAlignment="Center"
@@ -133,7 +133,8 @@
                         Margin="0,20,0,0">
         
                     <!-- Start Button -->
-                    <Button Content="Start"
+                    <Button Name="StartButton"
+                            Content="Start"
                             Width="130"
                             Height="40"
                             FontFamily="Calibri"
@@ -147,7 +148,8 @@
                             Click="StartButton_Click"/>
 
                     <!-- Pause Button -->
-                    <Button Content="Pause"
+                    <Button Name="PauseButton"
+                            Content="Pause"
                             Width="130"
                             Height="40"
                             FontFamily="Calibri"
@@ -159,10 +161,12 @@
                             BorderThickness="2"
                             Margin="15,0"
                             HorizontalAlignment="Center"
-                            Click="PauseButton_Click"/>
+                            Click="PauseButton_Click"
+                            IsEnabled="False"/>
 
                     <!-- Stopp Button -->
-                    <Button Content="Stopp"
+                    <Button Name="StopButton"
+                            Content="Stopp"
                             Width="130"
                             Height="40"
                             FontFamily="Calibri"
@@ -174,7 +178,8 @@
                             BorderThickness="2"
                             Margin="0,0, 0,0"
                             HorizontalAlignment="Right"
-                            Click="StopButton_Click"/>
+                            Click="StopButton_Click"
+                            IsEnabled="False"/>
             </StackPanel>
 
         </StackPanel>

@@ -23,7 +23,8 @@
                Panel.ZIndex="0"/>
 
         <!-- Start Button -->
-        <Button Content="Start"
+        <Button x:Name="StartButton"
+                Content="Verbinde mit Datenbank..."
                 HorizontalAlignment="Center"
                 VerticalAlignment="Bottom"
                 Width="350" 
@@ -37,7 +38,8 @@
                 Foreground="black"
                 BorderBrush="MidnightBlue"
                 BorderThickness="2"
-                Click="StartButton_Click"/>
+                Click="StartButton_Click"
+                IsEnabled="False"/>
 
     </Grid>
 </Window>
