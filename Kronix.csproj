@@ -34,4 +34,10 @@
       </Resource>
     </ItemGroup>
 
+    <ItemGroup>
+        <None Update="Resources\kundenDaten.sqlite">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </None>
+    </ItemGroup>
+
 </Project>
