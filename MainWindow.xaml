@@ -1,0 +1,43 @@
+﻿<Window x:Class="Kronix.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:gif="http://wpfanimatedgif.codeplex.com"
+        Title="Kronix" Height="500" Width="600" ResizeMode="NoResize">
+    <Grid>
+        <!-- Logo -->
+        <Image Source="pack://application:,,,/Resources/Kronix_logo.jpg" 
+               HorizontalAlignment="Center" 
+               VerticalAlignment="Top" 
+               Width="350" 
+               Height="200" 
+               Margin="0,40,0,0"
+               Panel.ZIndex="1"/>
+        
+        <!-- Animated GIF -->
+        <Image gif:ImageBehavior.AnimatedSource="pack://application:,,,/Resources/Kronix_animation.gif" 
+               HorizontalAlignment="Center" 
+               VerticalAlignment="Top" 
+               Margin="0,150,0,0"
+               Width="220" 
+               Height="220" 
+               Panel.ZIndex="0"/>
+
+        <!-- Start Button -->
+        <Button Content="Start"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Width="350" 
+                Height="50" 
+                FontFamily="Calibri"
+                Margin="0,0,0,40"
+                FontSize="22"
+                FontWeight="Bold"
+                Padding="0"
+                Background="white"
+                Foreground="black"
+                BorderBrush="MidnightBlue"
+                BorderThickness="2"
+                Click="StartButton_Click"/>
+
+    </Grid>
+</Window>
