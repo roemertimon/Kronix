@@ -3,10 +3,63 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:local="clr-namespace:Kronix.Windows"
              mc:Ignorable="d"
-             d:DesignHeight="300" d:DesignWidth="300">
+             d:DesignHeight="400" d:DesignWidth="800">
+    <UserControl.Resources>
+        <!-- Style für die DataGridColumnHeader -->
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#2C3E50"/> <!-- Einheitlicher Hintergrund -->
+            <Setter Property="Foreground" Value="White"/> <!-- Schriftfarbe -->
+            <Setter Property="FontWeight" Value="Bold"/> <!-- Fettschrift -->
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="BorderBrush" Value="Gray"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/> <!-- Grenzen zwischen den Headern -->
+            <Setter Property="Padding" Value="5,2"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridColumnHeader">
+                        <Border Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+    
     <Grid>
+        <!-- Suchzeile -->
+        <StackPanel Orientation="Horizontal" Background="White" Height="40" VerticalAlignment="Top" Margin="0,0,0,5">
+            <TextBox x:Name="SearchTextBox"
+                     Width="300"
+                     Height="30"
+                     VerticalAlignment="Center"
+                     Margin="10,5,5,5"/>
+            <Button x:Name="SearchButton"
+                    Content="Suche"
+                    Width="80"
+                    Height="30"
+                    VerticalAlignment="Center"
+                    Margin="5,5,10,5"
+                    Click="SearchButton_Click"/>
+        </StackPanel>
         
+        <DataGrid x:Name="DataGridRecords" 
+                  AutoGenerateColumns="False" 
+                  CanUserAddRows="False" 
+                  VerticalScrollBarVisibility="Visible"
+                  Margin="0,50,0,0">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Kunde" Binding="{Binding ClientNumber}" Width="50" IsReadOnly="True"/>
+                <DataGridTextColumn Header="Startzeit" Binding="{Binding StartTime}" Width="150" IsReadOnly="True"/>
+                <DataGridTextColumn Header="Endzeit" Binding="{Binding EndTime}" Width="150" IsReadOnly="True"/>
+                <DataGridTextColumn Header="Dauer" Binding="{Binding Duration}" Width="100" IsReadOnly="True"/>
+                <DataGridCheckBoxColumn Header="Abgerechnet" Binding="{Binding IsBilled}" Width="80" IsReadOnly="False"/>
+            </DataGrid.Columns>
+        </DataGrid>
     </Grid>
 </UserControl>

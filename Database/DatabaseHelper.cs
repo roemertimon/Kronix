@@ -13,6 +13,19 @@ public class DatabaseHelper
         public string? ClientNumber { get; set; }
         public DateTime? StartTime { get; set; }  
         public DateTime? EndTime { get; set; }
+        
+        // Berechnete Dauer zwischen StartTime und EndTime
+        public TimeSpan? Duration
+        {
+            get
+            {
+                if (StartTime.HasValue && EndTime.HasValue)
+                {
+                    return EndTime.Value - StartTime.Value;
+                }
+                return null;
+            }
+        }
     }
     
     private readonly string _connectionString;
