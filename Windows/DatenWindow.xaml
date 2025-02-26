@@ -58,7 +58,17 @@
                 <DataGridTextColumn Header="Startzeit" Binding="{Binding StartTime}" Width="150" IsReadOnly="True"/>
                 <DataGridTextColumn Header="Endzeit" Binding="{Binding EndTime}" Width="150" IsReadOnly="True"/>
                 <DataGridTextColumn Header="Dauer" Binding="{Binding Duration}" Width="100" IsReadOnly="True"/>
-                <DataGridCheckBoxColumn Header="Abgerechnet" Binding="{Binding IsBilled}" Width="80" IsReadOnly="False"/>
+                <DataGridCheckBoxColumn Header="Abgerechnet" 
+                                        Binding="{Binding IsBilled, Mode=TwoWay, UpdateSourceTrigger=Explicit}" 
+                                        Width="80" IsReadOnly="False">
+                    <DataGridCheckBoxColumn.ElementStyle>
+                        <Style TargetType="CheckBox">
+                            <EventSetter Event="Checked" Handler="OnBilledStatusChanged"/>
+                            <EventSetter Event="Unchecked" Handler="OnBilledStatusChanged"/>
+                        </Style>
+                    </DataGridCheckBoxColumn.ElementStyle>
+                </DataGridCheckBoxColumn>
+
             </DataGrid.Columns>
         </DataGrid>
     </Grid>

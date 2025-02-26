@@ -14,6 +14,8 @@ public class DatabaseHelper
         public DateTime? StartTime { get; set; }  
         public DateTime? EndTime { get; set; }
         
+        public bool IsBilled { get; set; }
+        
         // Berechnete Dauer zwischen StartTime und EndTime
         public TimeSpan? Duration
         {
@@ -56,7 +58,8 @@ public class DatabaseHelper
                         Id INTEGER PRIMARY KEY AUTOINCREMENT,
                         ClientNumber TEXT NOT NULL,
                         StartTime TEXT,
-                        EndTime TEXT
+                        EndTime TEXT,
+                        IsBilled INTEGER DEFAULT 0
                 )";
             
             SQLiteCommand command = new SQLiteCommand(createTableQuery, connection);
@@ -82,7 +85,7 @@ public class DatabaseHelper
     {
         using var connection = new SQLiteConnection(_connectionString);
         connection.Open();
-        const string insertQuery = "INSERT INTO TimeLogs (ClientNumber, StartTime, EndTime) VALUES (@clientNumber, @startTime, NULL)";
+        const string insertQuery = "INSERT INTO TimeLogs (ClientNumber, StartTime, EndTime, IsBilled) VALUES (@clientNumber, @startTime, NULL, 0)";
         SQLiteCommand command = new SQLiteCommand(insertQuery, connection);
         command.Parameters.AddWithValue("@clientNumber", clientNumber);
         command.Parameters.AddWithValue("@startTime", startTime.ToString("yyyy-MM-dd HH:mm:ss"));
@@ -150,8 +153,8 @@ public class DatabaseHelper
 
         using var connection = new SQLiteConnection(_connectionString);
         connection.Open();
-        const string selectQuery = "SELECT Id, ClientNumber, StartTime, EndTime FROM TimeLogs";
-        SQLiteCommand command = new SQLiteCommand(selectQuery, connection);
+        const string selectQuery = "SELECT Id, ClientNumber, StartTime, EndTime, IsBilled FROM TimeLogs";
+        using var command = new SQLiteCommand(selectQuery, connection);
         using SQLiteDataReader reader = command.ExecuteReader();
 
         while (reader.Read())
@@ -161,11 +164,42 @@ public class DatabaseHelper
                 Id = reader.GetInt32(0),
                 ClientNumber = reader.GetString(1),
                 StartTime = reader.IsDBNull(2) ? (DateTime?)null : DateTime.Parse(reader.GetString(2)),
-                EndTime = reader.IsDBNull(3) ? (DateTime?)null : DateTime.Parse(reader.GetString(3))
+                EndTime = reader.IsDBNull(3) ? (DateTime?)null : DateTime.Parse(reader.GetString(3)),
+                IsBilled = !reader.IsDBNull(4) && (reader.GetInt32(4) != 0)
             };
+        
+            Console.WriteLine($"Geladener Eintrag: ID={timeLog.Id}, Client={timeLog.ClientNumber}, IsBilled={timeLog.IsBilled}");
             timeLogs.Add(timeLog);
         }
 
         return timeLogs;
     }
+
+    
+    public void UpdateBillingStatus(int id, bool isBilled)
+    {
+        using var connection = new SQLiteConnection(_connectionString);
+        connection.Open();
+
+        const string updateQuery = "UPDATE TimeLogs SET IsBilled = @isBilled WHERE Id = @id";
+        using var command = new SQLiteCommand(updateQuery, connection);
+    
+        // Setze die Parameter
+        command.Parameters.AddWithValue("@isBilled", isBilled ? 1 : 0); // BOOLEAN als INTEGER (0 = false, 1 = true)
+        command.Parameters.AddWithValue("@id", id);
+    
+        // Führe das Update aus
+        int rowsAffected = command.ExecuteNonQuery();
+    
+        if (rowsAffected > 0)
+        {
+            Console.WriteLine($"Abrechnungsstatus für ID {id} erfolgreich auf {isBilled} gesetzt.");
+        }
+        else
+        {
+            Console.WriteLine($"Kein Datensatz mit ID {id} gefunden.");
+        }
+    }
+
+
 }
