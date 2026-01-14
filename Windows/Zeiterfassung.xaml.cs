@@ -1,122 +1,72 @@
 ﻿using System;
-using System.Windows;
-using System.Windows.Forms; // Import for NotifyIcon
-using System.Windows.Input;
 using System.Drawing;
+using System.IO;
 using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Forms;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Kronix.Database;
 using Notification.Wpf;
-using FontStyle = System.Windows.FontStyle; // Import for Icon
+// Import for NotifyIcon
+using Color = System.Windows.Media.Color;
 using MessageBox = System.Windows.MessageBox;     
 
-namespace Kronix;
+namespace Kronix.Windows;
 
-public partial class DashboardWindow : Window
+public partial class Zeiterfassung
 {
-    private readonly NotifyIcon _notifyIcon;
+    private readonly NotifyIcon? _notifyIcon;
     private readonly DatabaseHelper _dbHelper;
 
-    private bool _isPaused = false;
     private DateTime _startTime;           // To store the start time
     private DispatcherTimer _timer;        // Timer to update elapsed time
-    private NotificationManager _notificationManager;
-    
-    public DashboardWindow(DatabaseHelper dbHelper)
+    private readonly NotificationManager _notificationManager;
+    private bool _isPaused = false;
+
+    public Zeiterfassung(DatabaseHelper dbHelper)
     {
         InitializeComponent();
         this._dbHelper = dbHelper;
 
         _timer = new DispatcherTimer();
         
-        // Initialize NotifyIcon
-        _notifyIcon = new NotifyIcon
+        var iconUri = new Uri("pack://application:,,,/Resources/logo3.ico", UriKind.Absolute);
+        Stream? iconStream = System.Windows.Application.GetResourceStream(iconUri)?.Stream;
+
+        if (iconStream != null)
         {
-            Icon = new Icon(SystemIcons.Hand, 40, 40), // Set your custom icon here
-            Visible = false,
-            Text = "Kronix"
-        };
+            _notifyIcon = new NotifyIcon
+            {
+                Icon = new Icon(iconStream), // Load icon from resources
+                Visible = true,
+                Text = "Kronix"
+            };
+
+            // Make sure to dispose the stream if necessary
+            iconStream.Dispose();
+        }
 
         _notificationManager = new NotificationManager();
 
         // Add a context menu to the NotifyIcon
+        if (_notifyIcon == null) return;
         _notifyIcon.ContextMenuStrip = new ContextMenuStrip();
-        _notifyIcon.ContextMenuStrip.Items.Add("Pause", null, (s, e) => PauseButton_Click(this, new RoutedEventArgs()));
-        _notifyIcon.ContextMenuStrip.Items.Add("Stop", null, (s, e) => StopButton_Click(this, new RoutedEventArgs()));
+        _notifyIcon.ContextMenuStrip.Items.Add("Pause", null,
+            (s, e) => PauseButton_Click(this, new RoutedEventArgs()));
+        _notifyIcon.ContextMenuStrip.Items.Add("Stop", null,
+            (s, e) => StopButton_Click(this, new RoutedEventArgs()));
         _notifyIcon.ContextMenuStrip.Items.Add("Beenden", null, (s, e) => ExitApplication());
-
-        // Handle double-click to open window
-        _notifyIcon.DoubleClick += (s, e) => ShowWindow();
     }
-
-    private void ShowMessage()
-    {
-        // Display the notification
-        _notificationManager.Show("Kronix", "Kronix läuft jetzt im Hintergrund!", NotificationType.Information);
-    }
-
-    // Override the window closing event
-    private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
-    {
-        // Cancel the close action and minimize to system tray
-        e.Cancel = true;
-        Hide();
-        _notifyIcon.Visible = true;
-        ShowInTaskbar = false;
-        ShowMessage();
-    }
-
-    // Method to show the main window from the tray
-    private void ShowWindow()
-    {
-        Show();
-        WindowState = WindowState.Normal;
-        ShowInTaskbar = true;
-        _notifyIcon.Visible = false;
-    }
-
+    
     // Method to exit the application from the tray
     private void ExitApplication()
     {
-        _notifyIcon.Dispose(); // Dispose the icon
+        _notifyIcon?.Dispose(); // Dispose the icon
         System.Windows.Application.Current.Shutdown(); ; // Shut down the app
     }
     
-    protected override void OnClosed(EventArgs e)
-    {
-        _notifyIcon.Dispose(); // Dispose of the icon when the window is closed
-        base.OnClosed(e);
-    }
-
-    // Minimize to tray on minimize
-    protected override async void OnStateChanged(EventArgs e)
-    {
-        try
-        {
-            base.OnStateChanged(e);
-            switch (WindowState)
-            {
-                case WindowState.Minimized:
-                    Hide();
-                    _notifyIcon.Visible = true;
-                    ShowInTaskbar = false;
-            
-                    await Task.Delay(100); // Delay for smooth transition
-                    break;
-                case WindowState.Normal:
-                case WindowState.Maximized:
-                    _notifyIcon.Visible = false; // Hide NotifyIcon when the window is restored
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("Error in OnStateChanged: " + ex.Message);
-        }
-    }
+    
     
     // Platzhalter für die Start-Button-Logik
     private void StartButton_Click(object sender, RoutedEventArgs e)
@@ -135,7 +85,10 @@ public partial class DashboardWindow : Window
         _dbHelper.StartTimeLog(clientNumber, startTime);
         
         CustomerNumberTextBox.IsEnabled = false;
-        CustomerNumberTextBox.Foreground = new SolidColorBrush(Colors.Green);
+        CustomerNumberTextBox.Foreground = new SolidColorBrush(Color.FromRgb(0, 129, 72));
+
+
+
         CustomerNumberTextBox.FontWeight = FontWeights.Bold;
         
         StartButton.IsEnabled = false;
@@ -261,4 +214,18 @@ public partial class DashboardWindow : Window
         ElapsedTimeTextBlock.Text = elapsedTime.ToString(@"hh\:mm\:ss");
     }
 
+    private void ZeiterfassungButton_Click(object sender, RoutedEventArgs e)
+    {
+        throw new NotImplementedException();
+    }
+
+    private void KundenButton_Click(object sender, RoutedEventArgs e)
+    {
+        throw new NotImplementedException();
+    }
+
+    private void DatenButton_Click(object sender, RoutedEventArgs e)
+    {
+        throw new NotImplementedException();
+    }
 }

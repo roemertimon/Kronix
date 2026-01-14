@@ -7,6 +7,7 @@
         <UseWPF>true</UseWPF>
         <UseWindowsForms>true</UseWindowsForms>
         <TargetPlatformVersion>10.0</TargetPlatformVersion>
+        <ApplicationIcon>Resources\logo3.ico</ApplicationIcon>
     </PropertyGroup>
 
     <ItemGroup>
@@ -26,6 +27,14 @@
       <Resource Include="Resources\Kronix_animation.gif">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </Resource>
+      <None Remove="Resources\logo2.ico" />
+      <Resource Include="Resources\logo2.ico">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </Resource>
+      <None Remove="Resources\logo3.ico" />
+      <Resource Include="Resources\logo3.ico">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </Resource>
     </ItemGroup>
 
     <ItemGroup>
@@ -38,6 +47,26 @@
         <None Update="Resources\kundenDaten.sqlite">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </None>
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Remove="Resources\clock.ico" />
+      <Resource Include="Resources\clock.ico">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </Resource>
+    </ItemGroup>
+
+    <ItemGroup>
+      <Page Update="Windows\DashboardWindow.xaml">
+        <Generator>MSBuild:Compile</Generator>
+        <XamlRuntime>Wpf</XamlRuntime>
+        <SubType>Designer</SubType>
+      </Page>
+      <Page Update="Windows\MainWindow.xaml">
+        <Generator>MSBuild:Compile</Generator>
+        <XamlRuntime>Wpf</XamlRuntime>
+        <SubType>Designer</SubType>
+      </Page>
     </ItemGroup>
 
 </Project>
