@@ -1,18 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.Globalization;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Animation;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using System.Windows.Threading;
 using Kronix.Database;
 using Kronix.Windows;
 
@@ -24,57 +14,89 @@ namespace Kronix
     
     public partial class MainWindow : Window
     {
-        private readonly DatabaseHelper _dbHelper;
+        private DatabaseHelper? _dbHelper;
+        private readonly DispatcherTimer _clockTimer = new() { Interval = TimeSpan.FromSeconds(1) };
         
         public MainWindow()
         {
             InitializeComponent();
-    
-            _dbHelper = new DatabaseHelper();
-    
-            // Test the database connection by initializing the DatabaseHelper
+
+            _clockTimer.Tick += (_, _) => UpdateClock();
+            _clockTimer.Start();
+            UpdateClock();
+            Loaded += MainWindow_Loaded;
+        }
+
+        private void UpdateClock()
+        {
+            DateTime now = DateTime.Now;
+            ClockTextBlock.Text = now.ToString("HH:mm:ss");
+            DateTextBlock.Text = now.ToString("dddd, d. MMMM yyyy", CultureInfo.GetCultureInfo("de-DE"));
+        }
+
+        private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            await InitializeDatabaseAsync();
+        }
+
+        private async Task InitializeDatabaseAsync()
+        {
+            StartButton.IsEnabled = false;
+            InitializationProgressBar.Visibility = Visibility.Visible;
+            StatusIndicator.Visibility = Visibility.Collapsed;
+            StatusText.Text = "Kronix wird gestartet …";
+
             try
             {
-                if (!_dbHelper.IsDatabaseInitialized())
+                IProgress<string> progress = new Progress<string>(status =>
                 {
-                    throw new Exception("Datenbank Verbindung fehlgeschlagen!");
+                    StatusText.Text = status;
+                });
+                DatabaseHelper dbHelper = await Task.Run(() => new DatabaseHelper(progress.Report));
+                if (!dbHelper.IsDatabaseInitialized())
+                {
+                    throw new InvalidOperationException(
+                        $"Datenbankverbindung fehlgeschlagen: {dbHelper.InitializationError ?? "Unbekannter Fehler."}");
                 }
-                StartButton.Content = "Start"; // Update button text
-                StartButton.IsEnabled = true;  // Enable the button if connection succeeds
-                Console.WriteLine("Database connected successfully.");
+
+                _dbHelper = dbHelper;
+                App.DbHelper = dbHelper;
+                StatusText.Text = "Datenbank bereit";
+                StatusIndicator.Fill = System.Windows.Media.Brushes.SeaGreen;
+                StatusIndicator.Visibility = Visibility.Visible;
+                StartButton.Content = "Starten";
+                StartButton.IsEnabled = true;
+                InitializationProgressBar.Visibility = Visibility.Collapsed;
             }
             catch (Exception ex)
             {
-                StartButton.Content = ex.Message;
-                Console.WriteLine("Failed to connect to the database: " + ex.Message);
+                StatusText.Text = ex.Message;
+                StatusIndicator.Fill = System.Windows.Media.Brushes.IndianRed;
+                StatusIndicator.Visibility = Visibility.Visible;
+                StartButton.Content = "Erneut versuchen";
+                StartButton.IsEnabled = true;
+                InitializationProgressBar.Visibility = Visibility.Collapsed;
+                Console.WriteLine("Failed to connect to the database: " + ex);
             }
         }
 
-        
-        private void StartButton_Click(object sender, RoutedEventArgs e)
+        private async void StartButton_Click(object sender, RoutedEventArgs e)
         {
-            if (_dbHelper.IsDatabaseInitialized())
+            if (_dbHelper?.IsDatabaseInitialized() != true)
             {
-                // Create and position the new window
-                var dashboardWindow = new DashboardWindow(_dbHelper)
-                {
-                    Top = this.Top,
-                    Left = this.Left,
-                    Width = this.Width,
-                    Height = this.Height,
-                    WindowStartupLocation = WindowStartupLocation.Manual // Position the new window in the same place as the old one
-                };
-
-                // Show the new window immediately
-                dashboardWindow.Show();
-
-                // Close the current window right after showing the new one
-                this.Close();
+                await InitializeDatabaseAsync();
+                return;
             }
-            else
-            {
-                Console.WriteLine("Failed to connect to the database!" );
-            }
+
+            var dashboardWindow = new DashboardWindow(_dbHelper);
+            dashboardWindow.Show();
+            Close();
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            _clockTimer.Stop();
+            base.OnClosed(e);
         }
     }
 }

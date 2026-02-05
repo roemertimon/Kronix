@@ -15,17 +15,33 @@ namespace Kronix
     public partial class App : Application
     {
         // DatabaseHelper instance that will be available throughout the application
-        public static DatabaseHelper DbHelper { get; private set; }
+        public static DatabaseHelper? DbHelper { get; set; }
 
-        // Is called when the application starts
-        protected override void OnStartup(StartupEventArgs e)
+        protected override void OnExit(ExitEventArgs e)
         {
-            base.OnStartup(e);
+            CloseActiveTimeLogs();
+            base.OnExit(e);
+        }
 
-            // Initialize the DatabaseHelper instance
-            DbHelper = new DatabaseHelper();
-            
-            // The MainWindow will be displayed automatically based on App.xaml settings
+        protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
+        {
+            CloseActiveTimeLogs();
+            base.OnSessionEnding(e);
+        }
+
+        private static void CloseActiveTimeLogs()
+        {
+            if (DbHelper?.IsDatabaseInitialized() == true)
+            {
+                try
+                {
+                    DbHelper.CloseOpenTimeLogs(DateTime.Now);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Failed to close active time logs during shutdown: " + ex.Message);
+                }
+            }
         }
     }
 }

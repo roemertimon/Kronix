@@ -1,28 +1,25 @@
-﻿using System;
-using System.Drawing;
-using System.IO;
-using System.Threading.Tasks;
+using System;
 using System.Windows;
-using System.Windows.Forms;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Kronix.Database;
+using Notification.Core;
 using Notification.Wpf;
-// Import for NotifyIcon
 using Color = System.Windows.Media.Color;
-using MessageBox = System.Windows.MessageBox;     
 
 namespace Kronix.Windows;
 
-public partial class Zeiterfassung
+public partial class Zeiterfassung : UserControl
 {
-    private readonly NotifyIcon? _notifyIcon;
     private readonly DatabaseHelper _dbHelper;
 
     private DateTime _startTime;           // To store the start time
     private DispatcherTimer _timer;        // Timer to update elapsed time
+    private readonly DispatcherTimer _notesSaveTimer;
     private readonly NotificationManager _notificationManager;
-    private bool _isPaused = false;
+    private int? _activeTimeLogId;
+    private bool _updatingNotes;
 
     public Zeiterfassung(DatabaseHelper dbHelper)
     {
@@ -30,59 +27,96 @@ public partial class Zeiterfassung
         this._dbHelper = dbHelper;
 
         _timer = new DispatcherTimer();
-        
-        var iconUri = new Uri("pack://application:,,,/Resources/logo3.ico", UriKind.Absolute);
-        Stream? iconStream = System.Windows.Application.GetResourceStream(iconUri)?.Stream;
+        _notesSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
+        _notesSaveTimer.Tick += NotesSaveTimer_Tick;
+        _notificationManager = new NotificationManager();
+        Unloaded += Zeiterfassung_Unloaded;
 
-        if (iconStream != null)
+        RestoreActiveTimeLog();
+    }
+
+    private void RestoreActiveTimeLog()
+    {
+        var activeLog = _dbHelper.GetOpenTimeLog();
+        if (activeLog?.StartTime is not DateTime startTime)
         {
-            _notifyIcon = new NotifyIcon
-            {
-                Icon = new Icon(iconStream), // Load icon from resources
-                Visible = true,
-                Text = "Kronix"
-            };
-
-            // Make sure to dispose the stream if necessary
-            iconStream.Dispose();
+            return;
         }
 
-        _notificationManager = new NotificationManager();
+        _activeTimeLogId = activeLog.Id;
+        _startTime = startTime;
+        _updatingNotes = true;
+        NotesTextBox.Text = activeLog.Notes ?? string.Empty;
+        _updatingNotes = false;
+        CustomerNumberTextBox.Text = activeLog.ClientNumber ?? string.Empty;
+        CustomerNumberTextBox.IsEnabled = false;
+        CustomerNumberTextBox.Foreground = new SolidColorBrush(Color.FromRgb(0, 129, 72));
+        CustomerNumberTextBox.FontWeight = FontWeights.Bold;
+        PlaceholderTextBlock.Visibility = Visibility.Collapsed;
+        StartTimeTextBlock.Text = startTime.ToString("HH:mm") + " Uhr";
+        StartButton.IsEnabled = false;
+        PauseButton.IsEnabled = true;
+        StopButton.IsEnabled = true;
+        _timer.Interval = TimeSpan.FromSeconds(1);
+        _timer.Tick += UpdateElapsedTime;
+        _timer.Start();
+        UpdateElapsedTime(null, EventArgs.Empty);
+    }
 
-        // Add a context menu to the NotifyIcon
-        if (_notifyIcon == null) return;
-        _notifyIcon.ContextMenuStrip = new ContextMenuStrip();
-        _notifyIcon.ContextMenuStrip.Items.Add("Pause", null,
-            (s, e) => PauseButton_Click(this, new RoutedEventArgs()));
-        _notifyIcon.ContextMenuStrip.Items.Add("Stop", null,
-            (s, e) => StopButton_Click(this, new RoutedEventArgs()));
-        _notifyIcon.ContextMenuStrip.Items.Add("Beenden", null, (s, e) => ExitApplication());
-    }
-    
-    // Method to exit the application from the tray
-    private void ExitApplication()
+    private void Zeiterfassung_Unloaded(object sender, RoutedEventArgs e)
     {
-        _notifyIcon?.Dispose(); // Dispose the icon
-        System.Windows.Application.Current.Shutdown(); ; // Shut down the app
+        _timer.Stop();
+        SaveActiveNotes();
     }
-    
-    
-    
-    // Platzhalter für die Start-Button-Logik
+
     private void StartButton_Click(object sender, RoutedEventArgs e)
     {
-        // Retrieve the customer number from the input text box
-        string clientNumber = CustomerNumberTextBox.Text;
+        string clientNumber = CustomerNumberTextBox.Text.Trim();
 
-        if (string.IsNullOrEmpty(clientNumber))
+        if (!int.TryParse(clientNumber, out _))
         {
-            MessageBox.Show("Bitte geben Sie eine gültige Kundennummer ein!", "Kronix");
+            ShowError("Kundennummer fehlt", "Bitte geben Sie eine gültige Kundennummer ein.");
+            return;
+        }
+
+        try
+        {
+            if (_dbHelper.GetCustomer(clientNumber) is null)
+            {
+                var customerEditor = new CustomerEditorWindow(requestedClientNumber: clientNumber)
+                {
+                    Owner = Window.GetWindow(this)
+                };
+                if (customerEditor.ShowDialog() != true)
+                {
+                    return;
+                }
+
+                _dbHelper.SaveCustomer(customerEditor.Customer);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError("Kundendaten nicht gespeichert", ex.Message);
             return;
         }
         
-        // Use the _dbHelper instance to start a new time log entry
-        DateTime startTime = DateTime.Now; // Record the current time
-        _dbHelper.StartTimeLog(clientNumber, startTime);
+        DateTime now = DateTime.Now;
+        DateTime startTime = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0, now.Kind);
+        int timeLogId;
+        try
+        {
+            timeLogId = _dbHelper.StartTimeLog(clientNumber, startTime, NotesTextBox.Text);
+        }
+        catch (Exception ex)
+        {
+            ShowError("Zeiterfassung konnte nicht starten", ex.Message);
+            return;
+        }
+
+        _startTime = startTime;
+        _activeTimeLogId = timeLogId;
+        StartTimeTextBlock.Text = startTime.ToString("HH:mm") + " Uhr";
         
         CustomerNumberTextBox.IsEnabled = false;
         CustomerNumberTextBox.Foreground = new SolidColorBrush(Color.FromRgb(0, 129, 72));
@@ -95,8 +129,6 @@ public partial class Zeiterfassung
         PauseButton.IsEnabled = true;
         StopButton.IsEnabled = true;
         
-        _startTime = DateTime.Now; // Record the start time
-        
         // Initialize and start the timer for elapsed time
         _timer = new DispatcherTimer
         {
@@ -104,33 +136,44 @@ public partial class Zeiterfassung
         };
             
         _timer.Tick += UpdateElapsedTime;
-        
-        _isPaused = false;
         _timer.Start();
         
         // Set the start time in StartTimeTextBlock
-        StartTimeTextBlock.Text = startTime.ToString("HH:mm") + " Uhr";
-        
         // Confirm the time logging start to the user
         _notificationManager.Show("Kronix", $"Zeiterfassung gestartet für Kundennummer: {clientNumber} um {startTime}", NotificationType.Success);
     }
 
 
-    // Platzhalter für die Pause-Button-Logik
     private void PauseButton_Click(object sender, RoutedEventArgs e)
     {
         // Retrieve the customer number
         string clientNumber = CustomerNumberTextBox.Text;
 
-        if (string.IsNullOrEmpty(clientNumber))
+        if (_activeTimeLogId is null)
         {
-            MessageBox.Show("Bitte geben Sie eine gültige Kundennummer ein.");
+            ShowError("Keine laufende Zeiterfassung", "Aktuell läuft keine Zeiterfassung, die pausiert werden kann.");
             return;
         }
 
-        // Use _dbHelper to stop (pause) the current log entry for this customer
         DateTime pauseTime = DateTime.Now;
-        _dbHelper.StopTimeLog(clientNumber, pauseTime);
+        if (!SaveActiveNotes())
+        {
+            return;
+        }
+        try
+        {
+            if (!_dbHelper.StopTimeLog(_activeTimeLogId.Value, pauseTime))
+            {
+                ShowError("Pause nicht gespeichert", "Der laufende Zeiteintrag wurde nicht gefunden.");
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError("Pause nicht gespeichert", ex.Message);
+            return;
+        }
+        _activeTimeLogId = null;
         
         // Pause the timer to stop updating elapsed time
         _timer.Stop();
@@ -138,14 +181,11 @@ public partial class Zeiterfassung
         StartButton.IsEnabled = true;
         PauseButton.IsEnabled = false;
 
-        _isPaused = true;
-
         // Confirm the pause to the user
         _notificationManager.Show("Kronix", $"Zeiterfassung pausiert für Kundennummer: {clientNumber} um {pauseTime}", NotificationType.Information);
     }
 
 
-    // Platzhalter für die Stop-Button-Logik
     private void StopButton_Click(object sender, RoutedEventArgs e)
     {
         // Retrieve the customer number
@@ -153,13 +193,33 @@ public partial class Zeiterfassung
 
         if (string.IsNullOrEmpty(clientNumber))
         {
-            MessageBox.Show("Bitte geben Sie eine gültige Kundennummer ein.");
+            ShowError("Kundennummer fehlt", "Bitte geben Sie eine gültige Kundennummer ein.");
             return;
         }
 
-        // Use _dbHelper to stop (finalize) the current log entry for this customer
         DateTime stopTime = DateTime.Now;
-        _dbHelper.StopTimeLog(clientNumber, stopTime);
+        if (_activeTimeLogId is int timeLogId)
+        {
+            if (!SaveActiveNotes())
+            {
+                return;
+            }
+
+            try
+            {
+                if (!_dbHelper.StopTimeLog(timeLogId, stopTime))
+                {
+                    ShowError("Eintrag nicht gespeichert", "Der laufende Zeiteintrag wurde nicht gefunden.");
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowError("Eintrag nicht gespeichert", ex.Message);
+                return;
+            }
+            _activeTimeLogId = null;
+        }
         
         // Stop the timer to stop updating elapsed time
         _timer.Stop();
@@ -175,10 +235,57 @@ public partial class Zeiterfassung
         
         StartTimeTextBlock.Text = "--:--";
         ElapsedTimeTextBlock.Text = "--:--:--";
+        NotesTextBox.Clear();
         _timer = new DispatcherTimer();
 
         // Confirm the stop and save to the user
         _notificationManager.Show("Kronix", $"Zeiterfassung gestoppt und gespeichert für Kundennummer: {clientNumber} um {stopTime}", NotificationType.Success);
+    }
+
+    private void ShowError(string title, string message)
+    {
+        var dialog = new AppMessageWindow(title, message)
+        {
+            Owner = Window.GetWindow(this)
+        };
+        dialog.ShowDialog();
+    }
+
+    private void NotesTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_updatingNotes || _activeTimeLogId is null)
+        {
+            return;
+        }
+
+        _notesSaveTimer.Stop();
+        _notesSaveTimer.Start();
+    }
+
+    private void NotesSaveTimer_Tick(object? sender, EventArgs e)
+    {
+        _notesSaveTimer.Stop();
+        SaveActiveNotes();
+    }
+
+    private bool SaveActiveNotes()
+    {
+        _notesSaveTimer.Stop();
+        if (_activeTimeLogId is not int timeLogId)
+        {
+            return true;
+        }
+
+        try
+        {
+            _dbHelper.UpdateOpenTimeLogNotes(timeLogId, NotesTextBox.Text);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            ShowError("Notiz nicht gespeichert", ex.Message);
+            return false;
+        }
     }
 
 
@@ -211,21 +318,8 @@ public partial class Zeiterfassung
         TimeSpan elapsedTime = DateTime.Now - _startTime;
 
         // Update ElapsedTimeTextBlock with the formatted elapsed time
-        ElapsedTimeTextBlock.Text = elapsedTime.ToString(@"hh\:mm\:ss");
+        ElapsedTimeTextBlock.Text =
+            $"{(int)elapsedTime.TotalHours:00}:{elapsedTime.Minutes:00}:{elapsedTime.Seconds:00}";
     }
 
-    private void ZeiterfassungButton_Click(object sender, RoutedEventArgs e)
-    {
-        throw new NotImplementedException();
-    }
-
-    private void KundenButton_Click(object sender, RoutedEventArgs e)
-    {
-        throw new NotImplementedException();
-    }
-
-    private void DatenButton_Click(object sender, RoutedEventArgs e)
-    {
-        throw new NotImplementedException();
-    }
 }
