@@ -41,7 +41,20 @@
     </UserControl.Resources>
 
     <Grid Background="#F7F9FB">
-        <StackPanel Width="760" MaxWidth="760" HorizontalAlignment="Center"
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Grid Grid.Row="0">
+            <StackPanel Width="760" MaxWidth="760" HorizontalAlignment="Center"
+                        Margin="28,22,28,0">
+                <TextBlock Text="Zeiterfassung" FontSize="23" FontWeight="SemiBold"
+                           Foreground="{StaticResource NavyBrush}"/>
+                <TextBlock Text="Arbeitszeit erfassen und verwalten" FontSize="13"
+                           Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0"/>
+            </StackPanel>
+        </Grid>
+        <StackPanel Grid.Row="1" Width="760" MaxWidth="760" HorizontalAlignment="Center"
                     VerticalAlignment="Center" Margin="28">
             <Border Background="White" CornerRadius="14" Padding="22"
                     BorderBrush="#E6EBF0" BorderThickness="1">

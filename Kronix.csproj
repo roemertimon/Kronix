@@ -18,6 +18,7 @@
 
     <ItemGroup>
       <None Remove="Resources\Kronix_logo.jpg" />
+      <None Remove="Resources\Kronix_logo_name.jpg" />
       <None Remove="Resources\Kronix_animation.mp4" />
       <Resource Include="Resources\Kronix_animation.mp4">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -38,6 +39,9 @@
 
     <ItemGroup>
       <Resource Include="Resources\Kronix_logo.jpg">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </Resource>
+      <Resource Include="Resources\Kronix_logo_name.jpg">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </Resource>
     </ItemGroup>
