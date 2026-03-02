@@ -10,8 +10,11 @@ namespace Kronix.Windows;
 
 public partial class DashboardWindow : Window
 {
+    private static DashboardWindow? _trayOwner;
+    private static WinForms.NotifyIcon? _notifyIcon;
+    private static WinForms.ToolStripMenuItem? _stopTrackingMenuItem;
+
     private readonly DatabaseHelper _dbHelper;
-    private readonly WinForms.NotifyIcon? _notifyIcon;
     private readonly NotificationManager _notificationManager = new();
     private bool _allowClose;
 
@@ -19,24 +22,12 @@ public partial class DashboardWindow : Window
     {
         InitializeComponent();
         this._dbHelper = dbHelper;
-        
-        var iconUri = new Uri("pack://application:,,,/Resources/logo3.ico", UriKind.Absolute);
-        using Stream? iconStream = System.Windows.Application.GetResourceStream(iconUri)?.Stream;
+        _trayOwner = this;
+        EnsureTrayIcon();
 
-        if (iconStream != null)
-        {
-            _notifyIcon = new WinForms.NotifyIcon
-            {
-                Icon = new System.Drawing.Icon(iconStream),
-                Visible = true,
-                Text = "Kronix"
-            };
-            _notifyIcon.ContextMenuStrip = new WinForms.ContextMenuStrip();
-            _notifyIcon.ContextMenuStrip.Items.Add("Beenden", null, (s, e) => ExitApplication());
-            _notifyIcon.DoubleClick += (s, e) => ShowWindow();
-        }
-
+        _dbHelper.DatabaseStateChanged += DatabaseStateChanged;
         ShowZeiterfassung();
+        UpdateDatabaseWarning();
     }
     
     private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
@@ -66,6 +57,79 @@ public partial class DashboardWindow : Window
         // Display the notification
         _notificationManager.Show("Kronix", "Kronix läuft jetzt im Hintergrund!", NotificationType.Information);
     }
+
+    private void DatabaseStateChanged(object? sender, EventArgs e)
+    {
+        UpdateDatabaseWarning();
+    }
+
+    private void UpdateDatabaseWarning()
+    {
+        bool isReady = _dbHelper.IsDatabaseInitialized();
+        DatabaseWarningBorder.Visibility = isReady ? Visibility.Collapsed : Visibility.Visible;
+        DatabaseWarningTextBlock.Text = _dbHelper.InitializationError ??
+                                        "Datenbank nicht verfügbar. Öffnen Sie Einstellungen, um eine Datenbank auszuwählen oder neu anzulegen.";
+    }
+
+    private void UpdateTrayMenu()
+    {
+        if (_stopTrackingMenuItem is null)
+        {
+            return;
+        }
+
+        if (!_dbHelper.IsDatabaseInitialized())
+        {
+            _stopTrackingMenuItem.Enabled = false;
+            _stopTrackingMenuItem.Text = "Datenbank nicht verfügbar";
+            return;
+        }
+
+        try
+        {
+            DatabaseHelper.TimeLog? openLog = _dbHelper.GetOpenTimeLog();
+            _stopTrackingMenuItem.Enabled = openLog is not null;
+            _stopTrackingMenuItem.Text = openLog is null
+                ? "Keine laufende Zeiterfassung"
+                : $"Zeiterfassung stoppen (Kunde {openLog.ClientNumber})";
+        }
+        catch (Exception ex)
+        {
+            _stopTrackingMenuItem.Enabled = false;
+            _stopTrackingMenuItem.Text = "Zeiterfassung nicht verfügbar";
+            Console.WriteLine("Could not read active tracking state for tray menu: " + ex.Message);
+        }
+    }
+
+    private void StopTrackingFromTray()
+    {
+        try
+        {
+            DatabaseHelper.TimeLog? openLog = _dbHelper.GetOpenTimeLog();
+            if (openLog is null)
+            {
+                return;
+            }
+
+            if (!_dbHelper.StopTimeLog(openLog.Id, DateTime.Now))
+            {
+                throw new InvalidOperationException("Der laufende Zeiteintrag wurde nicht gefunden.");
+            }
+
+            _notifyIcon?.ShowBalloonTip(
+                3000,
+                "Kronix",
+                $"Zeiterfassung für Kunde {openLog.ClientNumber} wurde gestoppt.",
+                WinForms.ToolTipIcon.Info);
+            ShowZeiterfassung();
+            UpdateTrayMenu();
+        }
+        catch (Exception ex)
+        {
+            _notifyIcon?.ShowBalloonTip(4000, "Kronix", $"Stoppen fehlgeschlagen: {ex.Message}",
+                WinForms.ToolTipIcon.Error);
+        }
+    }
     
     // Method to show the main window from the tray
     private void ShowWindow()
@@ -73,7 +137,10 @@ public partial class DashboardWindow : Window
         Show();
         WindowState = WindowState.Normal;
         ShowInTaskbar = true;
-        if (_notifyIcon != null) _notifyIcon.Visible = false;
+        if (_notifyIcon != null)
+        {
+            _notifyIcon.Visible = true;
+        }
     }
 
     // Method to exit the application from the tray
@@ -86,7 +153,15 @@ public partial class DashboardWindow : Window
     
     protected override void OnClosed(EventArgs e)
     {
-        _notifyIcon?.Dispose();
+        _dbHelper.DatabaseStateChanged -= DatabaseStateChanged;
+        if (_allowClose && ReferenceEquals(_trayOwner, this))
+        {
+            _notifyIcon?.Dispose();
+            _notifyIcon = null;
+            _stopTrackingMenuItem = null;
+            _trayOwner = null;
+        }
+
         base.OnClosed(e);
     }
     
@@ -99,7 +174,7 @@ public partial class DashboardWindow : Window
         }
         else if (_notifyIcon != null)
         {
-            _notifyIcon.Visible = false;
+            _notifyIcon.Visible = true;
         }
     }
 
@@ -146,5 +221,39 @@ public partial class DashboardWindow : Window
         KundenBtn.IsEnabled = true;
         DatenBtn.IsEnabled = true;
         EinstellungenBtn.IsEnabled = false;
+    }
+
+    private static void EnsureTrayIcon()
+    {
+        if (_notifyIcon is not null)
+        {
+            _notifyIcon.Visible = true;
+            return;
+        }
+
+        var iconUri = new Uri("pack://application:,,,/Resources/logo3.ico", UriKind.Absolute);
+        using Stream? iconStream = System.Windows.Application.GetResourceStream(iconUri)?.Stream;
+        if (iconStream is null)
+        {
+            throw new InvalidOperationException("Das Kronix-Symbol für den Infobereich konnte nicht geladen werden.");
+        }
+
+        _notifyIcon = new WinForms.NotifyIcon
+        {
+            Icon = new System.Drawing.Icon(iconStream),
+            Visible = true,
+            Text = "Kronix"
+        };
+
+        var contextMenu = new WinForms.ContextMenuStrip();
+        contextMenu.Items.Add("Kronix öffnen", null, (_, _) => _trayOwner?.ShowWindow());
+        _stopTrackingMenuItem = new WinForms.ToolStripMenuItem("Zeiterfassung stoppen");
+        _stopTrackingMenuItem.Click += (_, _) => _trayOwner?.StopTrackingFromTray();
+        contextMenu.Items.Add(_stopTrackingMenuItem);
+        contextMenu.Items.Add(new WinForms.ToolStripSeparator());
+        contextMenu.Items.Add("Beenden", null, (_, _) => _trayOwner?.ExitApplication());
+        contextMenu.Opening += (_, _) => _trayOwner?.UpdateTrayMenu();
+        _notifyIcon.ContextMenuStrip = contextMenu;
+        _notifyIcon.DoubleClick += (_, _) => _trayOwner?.ShowWindow();
     }
 }

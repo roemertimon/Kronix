@@ -53,19 +53,20 @@ namespace Kronix
                     StatusText.Text = status;
                 });
                 DatabaseHelper dbHelper = await Task.Run(() => new DatabaseHelper(progress.Report));
+                _dbHelper = dbHelper;
+                App.DbHelper = dbHelper;
                 if (!dbHelper.IsDatabaseInitialized())
                 {
                     throw new InvalidOperationException(
                         $"Datenbankverbindung fehlgeschlagen: {dbHelper.InitializationError ?? "Unbekannter Fehler."}");
                 }
 
-                _dbHelper = dbHelper;
-                App.DbHelper = dbHelper;
                 StatusText.Text = "Datenbank bereit";
                 StatusIndicator.Fill = System.Windows.Media.Brushes.SeaGreen;
                 StatusIndicator.Visibility = Visibility.Visible;
                 StartButton.Content = "Starten";
                 StartButton.IsEnabled = true;
+                RetryButton.Visibility = Visibility.Collapsed;
                 InitializationProgressBar.Visibility = Visibility.Collapsed;
             }
             catch (Exception ex)
@@ -73,8 +74,9 @@ namespace Kronix
                 StatusText.Text = ex.Message;
                 StatusIndicator.Fill = System.Windows.Media.Brushes.IndianRed;
                 StatusIndicator.Visibility = Visibility.Visible;
-                StartButton.Content = "Erneut versuchen";
+                StartButton.Content = _dbHelper is null ? "Erneut versuchen" : "Trotzdem öffnen";
                 StartButton.IsEnabled = true;
+                RetryButton.Visibility = Visibility.Visible;
                 InitializationProgressBar.Visibility = Visibility.Collapsed;
                 Console.WriteLine("Failed to connect to the database: " + ex);
             }
@@ -84,13 +86,24 @@ namespace Kronix
         {
             if (_dbHelper?.IsDatabaseInitialized() != true)
             {
-                await InitializeDatabaseAsync();
-                return;
+                if (_dbHelper is null)
+                {
+                    await InitializeDatabaseAsync();
+                    if (_dbHelper is null)
+                    {
+                        return;
+                    }
+                }
             }
 
             var dashboardWindow = new DashboardWindow(_dbHelper);
             dashboardWindow.Show();
             Close();
+        }
+
+        private async void RetryButton_Click(object sender, RoutedEventArgs e)
+        {
+            await InitializeDatabaseAsync();
         }
 
         protected override void OnClosed(EventArgs e)

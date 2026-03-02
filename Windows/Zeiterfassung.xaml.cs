@@ -37,6 +37,11 @@ public partial class Zeiterfassung : UserControl
 
     private void RestoreActiveTimeLog()
     {
+        if (!_dbHelper.IsDatabaseInitialized())
+        {
+            return;
+        }
+
         var activeLog = _dbHelper.GetOpenTimeLog();
         if (activeLog?.StartTime is not DateTime startTime)
         {
@@ -71,6 +76,14 @@ public partial class Zeiterfassung : UserControl
 
     private void StartButton_Click(object sender, RoutedEventArgs e)
     {
+        if (!_dbHelper.IsDatabaseInitialized())
+        {
+            ShowError("Datenbank nicht verfügbar",
+                _dbHelper.InitializationError ??
+                "Öffnen Sie Einstellungen, um eine Datenbank auszuwählen oder neu anzulegen.");
+            return;
+        }
+
         string clientNumber = CustomerNumberTextBox.Text.Trim();
 
         if (!int.TryParse(clientNumber, out _))
