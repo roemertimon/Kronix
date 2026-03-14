@@ -38,6 +38,9 @@
             <Setter Property="BorderBrush" Value="#F0F2F5"/>
             <Setter Property="BorderThickness" Value="0,0,0,1"/>
             <Style.Triggers>
+                <Trigger Property="AlternationIndex" Value="1">
+                    <Setter Property="Background" Value="#F2F4F7"/>
+                </Trigger>
                 <DataTrigger Binding="{Binding EndTime}" Value="{x:Null}">
                     <Setter Property="Background" Value="#EAF6F0"/>
                     <Setter Property="BorderBrush" Value="#B9E3CE"/>
@@ -60,6 +63,14 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+        <Style x:Key="ActionIconButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
         <Style x:Key="CenteredCellText" TargetType="TextBlock">
             <Setter Property="VerticalAlignment" Value="Center"/>
@@ -130,7 +141,7 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <Grid Grid.Row="0" Margin="2,0,2,18">
+        <Grid Grid.Row="0" Margin="2,0,2,16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
@@ -142,70 +153,113 @@
                            FontSize="13" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0"/>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <Border Background="White" CornerRadius="9" Padding="14,6"
-                        BorderBrush="#E6EBF0" BorderThickness="1" Margin="0,0,10,0">
-                    <StackPanel>
-                        <TextBlock x:Name="ResultsCountTextBlock" Text="Einträge"
-                                   FontSize="10"
-                                   Foreground="{StaticResource MutedBrush}"/>
-                        <TextBlock x:Name="TotalDurationTextBlock" Text="0 Min."
-                                   FontSize="13" FontWeight="SemiBold"
-                                   Foreground="{StaticResource NavyBrush}"/>
-                    </StackPanel>
-                </Border>
-                <Button x:Name="ExportButton" Content="Exportieren"
-                        Width="130" Height="38" VerticalAlignment="Center"
+                <Button Content="+ Neuer Eintrag"
+                        Height="40" Padding="16,0" Margin="0,0,10,0"
+                        Background="White" Foreground="{StaticResource NavyBrush}"
+                        BorderBrush="#D0D5DD" BorderThickness="1"
+                        FontSize="14" FontWeight="SemiBold"
+                        Click="AddManualEntryButton_Click"/>
+                <Button x:Name="ExportButton" Height="40" Padding="16,0"
                         Background="{StaticResource NavyBrush}" Foreground="White"
                         BorderThickness="0" FontSize="14" FontWeight="SemiBold"
-                        Click="ExportButton_Click"/>
+                        Click="ExportButton_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Exportieren"/>
+                        <TextBlock Text="&#xE70D;" FontFamily="Segoe MDL2 Assets"
+                                   FontSize="10" Margin="10,1,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
             </StackPanel>
         </Grid>
 
-        <Border Grid.Row="1" Background="White" CornerRadius="12" Padding="16"
-                BorderBrush="#E6EBF0" BorderThickness="1" Margin="0,0,0,14">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="1.25*"/>
-                    <ColumnDefinition Width="14"/>
-                    <ColumnDefinition Width="1*"/>
-                    <ColumnDefinition Width="14"/>
-                    <ColumnDefinition Width="1*"/>
-                    <ColumnDefinition Width="14"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="8"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0">
-                    <TextBlock Text="Kundennummer" Style="{StaticResource FilterLabel}"/>
-                    <TextBox x:Name="CustomerFilterTextBox" Style="{StaticResource FilterTextBox}"
-                             ToolTip="Exakte Kundennummern, mehrere mit Komma trennen"
-                             TextChanged="CustomerFilterTextBox_TextChanged"
-                             KeyDown="FilterTextBox_KeyDown"/>
-                </StackPanel>
-                <StackPanel Grid.Column="2">
-                    <TextBlock Text="Zeitraum von" Style="{StaticResource FilterLabel}"/>
-                    <DatePicker x:Name="FromDatePicker" Style="{StaticResource FilterDatePicker}"
-                                SelectedDateChanged="DateFilter_Changed"/>
-                </StackPanel>
-                <StackPanel Grid.Column="4">
-                    <TextBlock Text="Zeitraum bis" Style="{StaticResource FilterLabel}"/>
-                    <DatePicker x:Name="ToDatePicker" Style="{StaticResource FilterDatePicker}"
-                                SelectedDateChanged="DateFilter_Changed"/>
-                </StackPanel>
-                <Button x:Name="ApplyFiltersButton" Grid.Column="6" Content="Filtern"
-                        Width="84" Height="38" VerticalAlignment="Bottom"
-                        Background="#E9EEF4" Foreground="{StaticResource NavyBrush}"
-                        BorderThickness="0" FontSize="13" FontWeight="SemiBold"
-                        Click="ApplyFiltersButton_Click"/>
-                <Button x:Name="ClearFiltersButton" Grid.Column="8" Content="Zurücksetzen"
-                        Width="104" Height="38" VerticalAlignment="Bottom"
-                        Background="White" Foreground="#475467"
-                        BorderBrush="#D0D5DD" BorderThickness="1"
-                        FontSize="13" Click="ClearFiltersButton_Click"/>
-            </Grid>
+        <Border Grid.Row="1" Background="#E9EDF1" CornerRadius="12" Padding="16"
+                BorderBrush="#D0D5DD" BorderThickness="1" Margin="0,0,0,14">
+            <StackPanel>
+                <TextBlock Text="FILTER &amp; STATISTIK" FontSize="12" FontWeight="SemiBold"
+                           Foreground="#475467" Margin="0,0,0,10"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.6*"/>
+                        <ColumnDefinition Width="14"/>
+                        <ColumnDefinition Width="1*"/>
+                        <ColumnDefinition Width="14"/>
+                        <ColumnDefinition Width="1*"/>
+                        <ColumnDefinition Width="14"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Kunde" Style="{StaticResource FilterLabel}"/>
+                        <TextBox x:Name="CustomerFilterTextBox" Style="{StaticResource FilterTextBox}"
+                                 ToolTip="Exakte Kundennummern, mehrere mit Komma trennen"
+                                 TextChanged="CustomerFilterTextBox_TextChanged"
+                                 KeyDown="FilterTextBox_KeyDown"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Zeitraum von" Style="{StaticResource FilterLabel}"/>
+                        <DatePicker x:Name="FromDatePicker" Style="{StaticResource FilterDatePicker}"
+                                    SelectedDateChanged="DateFilter_Changed"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="4">
+                        <TextBlock Text="Zeitraum bis" Style="{StaticResource FilterLabel}"/>
+                        <DatePicker x:Name="ToDatePicker" Style="{StaticResource FilterDatePicker}"
+                                    SelectedDateChanged="DateFilter_Changed"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="6" VerticalAlignment="Bottom">
+                        <TextBlock Text="Status" Style="{StaticResource FilterLabel}"/>
+                        <StackPanel Orientation="Horizontal" Height="38" VerticalAlignment="Center">
+                            <RadioButton x:Name="AllStatusRadioButton" Content="Alle"
+                                         GroupName="TimeLogStatus" IsChecked="True"
+                                         VerticalAlignment="Center" Margin="0,0,12,0"
+                                         Checked="StatusFilter_Changed"/>
+                            <RadioButton x:Name="OpenStatusRadioButton" Content="Nur offene"
+                                         GroupName="TimeLogStatus"
+                                         VerticalAlignment="Center" Margin="0,0,12,0"
+                                         Checked="StatusFilter_Changed"/>
+                            <RadioButton x:Name="BilledStatusRadioButton" Content="Abgerechnet"
+                                         GroupName="TimeLogStatus"
+                                         VerticalAlignment="Center"
+                                         Checked="StatusFilter_Changed"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+                <Grid Margin="0,13,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="10"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Button x:Name="ApplyFiltersButton" Grid.Column="0" Content="Filtern"
+                            Width="88" Height="38"
+                            Background="#D5E5F1" Foreground="{StaticResource NavyBrush}"
+                            BorderThickness="0" FontSize="13" FontWeight="SemiBold"
+                            Click="ApplyFiltersButton_Click"/>
+                    <Button x:Name="ClearFiltersButton" Grid.Column="2" Content="Zurücksetzen"
+                            Width="112" Height="38"
+                            Background="Transparent" Foreground="#344054"
+                            BorderBrush="Transparent" BorderThickness="0"
+                            FontSize="13" Click="ClearFiltersButton_Click"/>
+                    <TextBlock x:Name="ResultsSummaryTextBlock" Grid.Column="4"
+                               Text="0 Einträge  |  Gesamtzeit: 0 h 00 m (0,00 h)  |  Offen: 0 h 00 m"
+                               VerticalAlignment="Center" HorizontalAlignment="Right"
+                               Foreground="#344054" FontSize="13"/>
+                </Grid>
+            </StackPanel>
         </Border>
 
-        <DataGrid x:Name="DataGridRecords" Grid.Row="2"
+        <Border Grid.Row="2" Background="White" CornerRadius="12"
+                BorderBrush="#D0D5DD" BorderThickness="1" ClipToBounds="True">
+          <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="30"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <Border Background="#F2F4F7" Padding="16,0">
+                <TextBlock Text="ERGEBNISSE" FontSize="12" FontWeight="SemiBold"
+                           Foreground="#475467" VerticalAlignment="Center"/>
+            </Border>
+        <DataGrid x:Name="DataGridRecords" Grid.Row="1"
                   AutoGenerateColumns="False"
                   CanUserAddRows="False"
                   CanUserDeleteRows="False"
@@ -213,28 +267,38 @@
                   HeadersVisibility="Column"
                   GridLinesVisibility="None"
                   RowHeaderWidth="0"
+                  AlternationCount="2"
                   Background="White"
-                  BorderBrush="#E6EBF0"
-                  BorderThickness="1"
+                  BorderThickness="0"
                   VerticalScrollBarVisibility="Auto"
-                  HorizontalScrollBarVisibility="Auto">
+                  HorizontalScrollBarVisibility="Disabled">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Kunde" Binding="{Binding ClientNumber}"
-                                    Width="100" IsReadOnly="True"
+                <DataGridTextColumn Header="Kunde / Nummer" Binding="{Binding ClientNumber}"
+                                    Width="1.1*" MinWidth="105" IsReadOnly="True"
                                     ElementStyle="{StaticResource CustomerCellText}"/>
-                <DataGridTextColumn Header="Startzeit"
-                                    Binding="{Binding StartTime, StringFormat={}{0:dd.MM.yyyy HH:mm}}"
-                                    Width="160" IsReadOnly="True"
+                <DataGridTextColumn Header="Datum"
+                                    Binding="{Binding StartTime, StringFormat={}{0:dd.MM.yyyy}}"
+                                    Width="0.95*" MinWidth="100" IsReadOnly="True"
                                     ElementStyle="{StaticResource CenteredCellText}"/>
-                <DataGridTextColumn Header="Endzeit"
-                                    Binding="{Binding EndTime, StringFormat={}{0:dd.MM.yyyy HH:mm}}"
-                                    Width="160" IsReadOnly="True"
-                                    ElementStyle="{StaticResource CenteredCellText}"/>
+                <DataGridTemplateColumn Header="Zeitspanne" Width="1.05*" MinWidth="115">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding StartTime, StringFormat={}{0:HH:mm}}"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Text=" – " Foreground="{StaticResource MutedBrush}"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding EndTime, StringFormat={}{0:HH:mm}}"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
                 <DataGridTextColumn Header="Dauer"
-                                    Binding="{Binding Duration, StringFormat={}{0:hh\\:mm\\:ss}}"
-                                    Width="100" IsReadOnly="True"
+                                    Binding="{Binding Duration, StringFormat={}{0:hh\\:mm}}"
+                                    Width="0.75*" MinWidth="78" IsReadOnly="True"
                                     ElementStyle="{StaticResource CenteredCellText}"/>
-                <DataGridTemplateColumn Header="Tätigkeit / Notiz" Width="180">
+                <DataGridTemplateColumn Header="Tätigkeit / Notiz" Width="1.5*" MinWidth="135">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <Button Background="Transparent" BorderThickness="0"
@@ -243,13 +307,13 @@
                                     Click="NoteDetailsButton_Click">
                                 <TextBlock Text="{Binding Notes}"
                                            TextTrimming="CharacterEllipsis"
-                                           MaxWidth="160" VerticalAlignment="Center"
+                                           MaxWidth="240" VerticalAlignment="Center"
                                            Foreground="#475467"/>
                             </Button>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="Abgerechnet" Width="110">
+                <DataGridTemplateColumn Header="Status" Width="0.95*" MinWidth="105">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <CheckBox IsChecked="{Binding IsBilled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -259,37 +323,33 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="" Width="62">
+                <DataGridTemplateColumn Header="Aktionen" Width="92" MinWidth="92">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Button Width="30" Height="30" VerticalAlignment="Center"
-                                    Padding="0" Background="Transparent" BorderThickness="0"
-                                    ToolTip="Eintrag bearbeiten"
-                                    AutomationProperties.Name="Eintrag bearbeiten"
-                                    Click="EditButton_Click">
-                                <TextBlock Text="&#xE70F;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="14" Foreground="#475467"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Button>
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="" Width="62">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <Button Width="30" Height="30" VerticalAlignment="Center"
-                                    Padding="0" Background="Transparent" BorderThickness="0"
-                                    ToolTip="Eintrag löschen"
-                                    AutomationProperties.Name="Eintrag löschen"
-                                    Click="DeleteButton_Click">
-                                <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="15" Foreground="#B42318"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Button>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <Button Style="{StaticResource ActionIconButtonStyle}"
+                                        ToolTip="Eintrag bearbeiten"
+                                        AutomationProperties.Name="Eintrag bearbeiten"
+                                        Click="EditButton_Click">
+                                    <TextBlock Text="&#xE70F;" FontFamily="Segoe MDL2 Assets"
+                                               FontSize="14" Foreground="#20364F"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Button>
+                                <Button Style="{StaticResource ActionIconButtonStyle}"
+                                        ToolTip="Eintrag löschen"
+                                        AutomationProperties.Name="Eintrag löschen"
+                                        Click="DeleteButton_Click">
+                                    <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets"
+                                               FontSize="15" Foreground="#B42318"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Button>
+                            </StackPanel>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
             </DataGrid.Columns>
         </DataGrid>
+          </Grid>
+        </Border>
     </Grid>
 </UserControl>
