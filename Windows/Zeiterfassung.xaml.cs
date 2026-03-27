@@ -1,6 +1,11 @@
 using System;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Kronix.Database;
@@ -13,6 +18,8 @@ namespace Kronix.Windows;
 public partial class Zeiterfassung : UserControl
 {
     private readonly DatabaseHelper _dbHelper;
+    private readonly ObservableCollection<DatabaseHelper.Customer> _customers = new();
+    private readonly ICollectionView _customersView;
 
     private DateTime _startTime;           // To store the start time
     private DispatcherTimer _timer;        // Timer to update elapsed time
@@ -20,11 +27,15 @@ public partial class Zeiterfassung : UserControl
     private readonly NotificationManager _notificationManager;
     private int? _activeTimeLogId;
     private bool _updatingNotes;
+    private bool _updatingCustomerSelection;
 
     public Zeiterfassung(DatabaseHelper dbHelper)
     {
         InitializeComponent();
         this._dbHelper = dbHelper;
+        _customersView = CollectionViewSource.GetDefaultView(_customers);
+        _customersView.Filter = FilterCustomerSuggestion;
+        CustomerNumberComboBox.ItemsSource = _customersView;
 
         _timer = new DispatcherTimer();
         _notesSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
@@ -53,12 +64,13 @@ public partial class Zeiterfassung : UserControl
         _updatingNotes = true;
         NotesTextBox.Text = activeLog.Notes ?? string.Empty;
         _updatingNotes = false;
-        CustomerNumberTextBox.Text = activeLog.ClientNumber ?? string.Empty;
-        CustomerNumberTextBox.IsEnabled = false;
-        CustomerNumberTextBox.Foreground = new SolidColorBrush(Color.FromRgb(0, 129, 72));
-        CustomerNumberTextBox.FontWeight = FontWeights.Bold;
-        PlaceholderTextBlock.Visibility = Visibility.Collapsed;
+        CustomerNumberComboBox.Text = activeLog.ClientNumber ?? string.Empty;
+        CustomerNumberComboBox.IsEnabled = false;
+        CustomerNumberComboBox.Foreground = new SolidColorBrush(Color.FromRgb(0, 129, 72));
+        CustomerNumberComboBox.FontWeight = FontWeights.Bold;
+        UpdateCustomerName(activeLog.ClientNumber);
         StartTimeTextBlock.Text = startTime.ToString("HH:mm") + " Uhr";
+        EditStartTimeButton.Visibility = Visibility.Visible;
         StartButton.IsEnabled = false;
         PauseButton.IsEnabled = true;
         StopButton.IsEnabled = true;
@@ -84,7 +96,7 @@ public partial class Zeiterfassung : UserControl
             return;
         }
 
-        string clientNumber = CustomerNumberTextBox.Text.Trim();
+        string clientNumber = CustomerNumberComboBox.Text.Trim();
 
         if (!int.TryParse(clientNumber, out _))
         {
@@ -94,7 +106,8 @@ public partial class Zeiterfassung : UserControl
 
         try
         {
-            if (_dbHelper.GetCustomer(clientNumber) is null)
+            DatabaseHelper.Customer? customer = _dbHelper.GetCustomer(clientNumber);
+            if (customer is null)
             {
                 var customerEditor = new CustomerEditorWindow(requestedClientNumber: clientNumber)
                 {
@@ -106,7 +119,10 @@ public partial class Zeiterfassung : UserControl
                 }
 
                 _dbHelper.SaveCustomer(customerEditor.Customer);
+                customer = customerEditor.Customer;
             }
+
+            UpdateCustomerName(customer);
         }
         catch (Exception ex)
         {
@@ -130,13 +146,12 @@ public partial class Zeiterfassung : UserControl
         _startTime = startTime;
         _activeTimeLogId = timeLogId;
         StartTimeTextBlock.Text = startTime.ToString("HH:mm") + " Uhr";
+        EditStartTimeButton.Visibility = Visibility.Visible;
         
-        CustomerNumberTextBox.IsEnabled = false;
-        CustomerNumberTextBox.Foreground = new SolidColorBrush(Color.FromRgb(0, 129, 72));
+        CustomerNumberComboBox.IsEnabled = false;
+        CustomerNumberComboBox.Foreground = new SolidColorBrush(Color.FromRgb(0, 129, 72));
 
-
-
-        CustomerNumberTextBox.FontWeight = FontWeights.Bold;
+        CustomerNumberComboBox.FontWeight = FontWeights.Bold;
         
         StartButton.IsEnabled = false;
         PauseButton.IsEnabled = true;
@@ -160,7 +175,7 @@ public partial class Zeiterfassung : UserControl
     private void PauseButton_Click(object sender, RoutedEventArgs e)
     {
         // Retrieve the customer number
-        string clientNumber = CustomerNumberTextBox.Text;
+        string clientNumber = CustomerNumberComboBox.Text;
 
         if (_activeTimeLogId is null)
         {
@@ -202,7 +217,7 @@ public partial class Zeiterfassung : UserControl
     private void StopButton_Click(object sender, RoutedEventArgs e)
     {
         // Retrieve the customer number
-        string clientNumber = CustomerNumberTextBox.Text;
+        string clientNumber = CustomerNumberComboBox.Text;
 
         if (string.IsNullOrEmpty(clientNumber))
         {
@@ -237,16 +252,19 @@ public partial class Zeiterfassung : UserControl
         // Stop the timer to stop updating elapsed time
         _timer.Stop();
 
-        CustomerNumberTextBox.IsEnabled = true;
-        CustomerNumberTextBox.Text = "";
-        CustomerNumberTextBox.Foreground = new SolidColorBrush(Colors.Black);
-        CustomerNumberTextBox.FontWeight = FontWeights.Normal;
+        CustomerNumberComboBox.IsEnabled = true;
+        CustomerNumberComboBox.SelectedItem = null;
+        CustomerNumberComboBox.Text = "";
+        CustomerNumberComboBox.Foreground = new SolidColorBrush(Colors.Black);
+        CustomerNumberComboBox.FontWeight = FontWeights.Normal;
+        CustomerNameTextBlock.Visibility = Visibility.Hidden;
         
         StartButton.IsEnabled = true;
         PauseButton.IsEnabled = false;
         StopButton.IsEnabled = false;
         
         StartTimeTextBlock.Text = "--:--";
+        EditStartTimeButton.Visibility = Visibility.Collapsed;
         ElapsedTimeTextBlock.Text = "--:--:--";
         NotesTextBox.Clear();
         _timer = new DispatcherTimer();
@@ -302,27 +320,125 @@ public partial class Zeiterfassung : UserControl
     }
 
 
-    // Zahlenprüfung für die Kundennummer-Eingabe
-    private void CustomerNumberTextBox_PreviewTextInput(object sender, System.Windows.Input.TextCompositionEventArgs e)
+    private void CustomerNumberComboBox_Loaded(object sender, RoutedEventArgs e)
     {
-        // Überprüfen, ob die Eingabe eine Zahl ist
-        e.Handled = !int.TryParse(e.Text, out _);
+        _customers.Clear();
+        if (_dbHelper.IsDatabaseInitialized())
+        {
+            foreach (DatabaseHelper.Customer customer in _dbHelper.GetAllCustomers())
+            {
+                _customers.Add(customer);
+            }
+        }
+
+        UpdateCustomerName(CustomerNumberComboBox.Text);
+        if (CustomerNumberComboBox.Template.FindName("PART_EditableTextBox", CustomerNumberComboBox) is TextBox textBox)
+        {
+            textBox.TextChanged += CustomerNumberTextBox_TextChanged;
+            textBox.PreviewTextInput += CustomerNumberTextBox_PreviewTextInput;
+            textBox.GotFocus += CustomerNumberTextBox_GotFocus;
+            textBox.LostFocus += CustomerNumberTextBox_LostFocus;
+        }
     }
-    
+
+    private void CustomerNumberTextBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
+    {
+        e.Handled = !e.Text.All(char.IsDigit);
+    }
+
+    private void CustomerNumberComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (CustomerNumberComboBox.SelectedItem is DatabaseHelper.Customer customer)
+        {
+            _updatingCustomerSelection = true;
+            CustomerNumberComboBox.Text = customer.ClientNumber;
+            _updatingCustomerSelection = false;
+            UpdateCustomerName(customer);
+            CustomerNumberComboBox.IsDropDownOpen = false;
+        }
+    }
+
+    private void CustomerNumberTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_updatingCustomerSelection)
+        {
+            return;
+        }
+
+        string text = CustomerNumberComboBox.Text;
+        if (CustomerNumberComboBox.SelectedItem is DatabaseHelper.Customer selectedCustomer &&
+            !string.Equals(selectedCustomer.ClientNumber, text, StringComparison.Ordinal))
+        {
+            CustomerNumberComboBox.SelectedItem = null;
+        }
+
+        _customersView.Refresh();
+        UpdateCustomerName(text);
+        CustomerNumberComboBox.IsDropDownOpen =
+            text.Length > 0 && _customersView.Cast<DatabaseHelper.Customer>().Any();
+    }
+
+    private bool FilterCustomerSuggestion(object item)
+    {
+        if (item is not DatabaseHelper.Customer customer)
+        {
+            return false;
+        }
+
+        string filter = CustomerNumberComboBox.Text.Trim();
+        return filter.Length == 0 ||
+               customer.ClientNumber.Contains(filter, StringComparison.CurrentCultureIgnoreCase) ||
+               customer.DisplayName.Contains(filter, StringComparison.CurrentCultureIgnoreCase) ||
+               customer.Company.Contains(filter, StringComparison.CurrentCultureIgnoreCase);
+    }
+
+    private void UpdateCustomerName(string? clientNumber)
+    {
+        DatabaseHelper.Customer? customer = _customers.FirstOrDefault(item =>
+            string.Equals(item.ClientNumber, clientNumber?.Trim(), StringComparison.OrdinalIgnoreCase));
+        UpdateCustomerName(customer);
+    }
+
+    private void UpdateCustomerName(DatabaseHelper.Customer? customer)
+    {
+        if (customer is null)
+        {
+            CustomerNameTextBlock.Text = string.IsNullOrWhiteSpace(CustomerNumberComboBox.Text)
+                ? string.Empty
+                : "Kunde noch nicht vorhanden – beim Start können Sie ihn anlegen.";
+            CustomerNameTextBlock.Foreground = customer is null && !string.IsNullOrWhiteSpace(CustomerNumberComboBox.Text)
+                ? new SolidColorBrush(Color.FromRgb(152, 101, 0))
+                : new SolidColorBrush(Color.FromRgb(102, 112, 133));
+            CustomerNameTextBlock.Visibility = string.IsNullOrWhiteSpace(CustomerNumberComboBox.Text)
+                ? Visibility.Hidden
+                : Visibility.Visible;
+            return;
+        }
+
+        string name = string.IsNullOrWhiteSpace(customer.DisplayName)
+            ? "Kundenstammdaten unvollständig"
+            : customer.DisplayName;
+        if (!string.IsNullOrWhiteSpace(customer.Company))
+        {
+            name += $" · {customer.Company}";
+        }
+
+        CustomerNameTextBlock.Text = name;
+        CustomerNameTextBlock.Foreground = new SolidColorBrush(Color.FromRgb(102, 112, 133));
+        CustomerNameTextBlock.Visibility = Visibility.Visible;
+    }
+
     private void CustomerNumberTextBox_GotFocus(object sender, RoutedEventArgs e)
     {
-        if (string.IsNullOrEmpty(CustomerNumberTextBox.Text))
+        if (_customers.Count > 0)
         {
-            PlaceholderTextBlock.Visibility = Visibility.Collapsed;
+            CustomerNumberComboBox.IsDropDownOpen = true;
         }
     }
 
     private void CustomerNumberTextBox_LostFocus(object sender, RoutedEventArgs e)
     {
-        if (string.IsNullOrEmpty(CustomerNumberTextBox.Text))
-        {
-            PlaceholderTextBlock.Visibility = Visibility.Visible;
-        }
+        CustomerNumberComboBox.IsDropDownOpen = false;
     }
 
     private void UpdateElapsedTime(object? sender, EventArgs e)
@@ -333,6 +449,43 @@ public partial class Zeiterfassung : UserControl
         // Update ElapsedTimeTextBlock with the formatted elapsed time
         ElapsedTimeTextBlock.Text =
             $"{(int)elapsedTime.TotalHours:00}:{elapsedTime.Minutes:00}:{elapsedTime.Seconds:00}";
+    }
+
+    private void EditStartTimeButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_activeTimeLogId is not int timeLogId)
+        {
+            return;
+        }
+
+        var activeLog = new DatabaseHelper.TimeLog
+        {
+            Id = timeLogId,
+            ClientNumber = CustomerNumberComboBox.Text,
+            StartTime = _startTime,
+            EndTime = null,
+            Notes = NotesTextBox.Text
+        };
+        var editor = new EditTimeLogWindow(activeLog)
+        {
+            Owner = Window.GetWindow(this)
+        };
+        if (editor.ShowDialog() != true)
+        {
+            return;
+        }
+
+        try
+        {
+            _dbHelper.UpdateOpenTimeLogStartTime(timeLogId, editor.StartTime);
+            _startTime = editor.StartTime;
+            StartTimeTextBlock.Text = _startTime.ToString("HH:mm") + " Uhr";
+            UpdateElapsedTime(null, EventArgs.Empty);
+        }
+        catch (Exception ex)
+        {
+            ShowError("Startzeit nicht geändert", ex.Message);
+        }
     }
 
 }

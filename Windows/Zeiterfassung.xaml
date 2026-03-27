@@ -9,26 +9,43 @@
         <SolidColorBrush x:Key="NavyBrush" Color="#20364F"/>
         <SolidColorBrush x:Key="AccentBrush" Color="#087F5B"/>
         <SolidColorBrush x:Key="MutedBrush" Color="#667085"/>
+        <DataTemplate x:Key="CustomerSuggestionTemplate">
+            <StackPanel VerticalAlignment="Center" Margin="4,3">
+                <TextBlock Text="{Binding ClientNumber}" FontWeight="SemiBold"
+                           Foreground="#20364F"/>
+                <TextBlock Text="{Binding DisplayName}" FontSize="12"
+                           Foreground="#667085"/>
+                <TextBlock Text="{Binding Company}" FontSize="11"
+                           Foreground="#667085"/>
+            </StackPanel>
+        </DataTemplate>
+        <Style x:Key="CustomerSuggestionContainerStyle" TargetType="ComboBoxItem">
+            <Setter Property="MinHeight" Value="56"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
         <Style x:Key="ActionButtonStyle" TargetType="Button">
-            <Setter Property="Height" Value="46"/>
-            <Setter Property="FontFamily" Value="Calibri"/>
-            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="Height" Value="44"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="FontSize" Value="14"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="ActionBorder" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="8" Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ActionBorder" Property="Background" Value="#DCE5EE"/>
-                                <Setter TargetName="ActionBorder" Property="Opacity" Value="1"/>
+                                <Setter TargetName="ActionBorder" Property="Opacity" Value="0.88"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="ActionBorder" Property="Background" Value="#CBD7E3"/>
+                                <Setter TargetName="ActionBorder" Property="Opacity" Value="0.76"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="ActionBorder" Property="Opacity" Value="0.45"/>
@@ -38,109 +55,129 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="TimerLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
+        </Style>
     </UserControl.Resources>
 
-    <Grid Background="#F7F9FB">
+    <Grid Background="#F7F9FB" Margin="18">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
-        <Grid Grid.Row="0">
-            <StackPanel Width="760" MaxWidth="760" HorizontalAlignment="Center"
-                        Margin="28,22,28,0">
-                <TextBlock Text="Zeiterfassung" FontSize="23" FontWeight="SemiBold"
-                           Foreground="{StaticResource NavyBrush}"/>
-                <TextBlock Text="Arbeitszeit erfassen und verwalten" FontSize="13"
-                           Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0"/>
-            </StackPanel>
-        </Grid>
-        <StackPanel Grid.Row="1" Width="760" MaxWidth="760" HorizontalAlignment="Center"
-                    VerticalAlignment="Center" Margin="28">
-            <Border Background="White" CornerRadius="14" Padding="22"
+        <Grid Grid.Row="0" VerticalAlignment="Center">
+            <Border Width="840" MaxWidth="840" HorizontalAlignment="Center"
+                    Background="White" CornerRadius="12" Padding="22"
                     BorderBrush="#E6EBF0" BorderThickness="1">
                 <StackPanel>
-                    <TextBlock Text="Kundennummer" FontSize="14" FontWeight="SemiBold"
-                               Foreground="{StaticResource MutedBrush}" Margin="0,0,0,9"/>
-                    <Grid Height="48">
-                        <TextBox x:Name="CustomerNumberTextBox"
-                                 Padding="14,0"
-                                 VerticalContentAlignment="Center"
-                                 FontFamily="Calibri" FontSize="18"
-                                 Background="#FBFCFD" Foreground="#1D2939"
-                                 BorderBrush="#D0D5DD" BorderThickness="1"
-                                 PreviewTextInput="CustomerNumberTextBox_PreviewTextInput"
-                                 GotFocus="CustomerNumberTextBox_GotFocus"
-                                 LostFocus="CustomerNumberTextBox_LostFocus"/>
-                        <TextBlock x:Name="PlaceholderTextBlock" Text="Kundennummer eingeben"
-                                   Margin="15,0,0,0" VerticalAlignment="Center"
-                                   Foreground="#98A2B3" FontSize="15"
-                                   IsHitTestVisible="False"/>
+                    <TextBlock Text="Zeiterfassung" FontSize="23" FontWeight="SemiBold"
+                               Foreground="{StaticResource NavyBrush}"/>
+                    <TextBlock Text="Arbeitszeit erfassen und verwalten" FontSize="13"
+                               Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0"/>
+                    <Border Height="1" Background="#EAECF0" Margin="0,16,0,18"/>
+
+                    <TextBlock Text="Kundennummer" FontSize="12" FontWeight="SemiBold"
+                               Foreground="{StaticResource MutedBrush}" Margin="0,0,0,6"/>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="44"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <ComboBox x:Name="CustomerNumberComboBox"
+                                  IsEditable="True" IsTextSearchEnabled="False"
+                                  StaysOpenOnEdit="True" MaxDropDownHeight="260"
+                                  TextSearch.TextPath="ClientNumber"
+                                  ItemTemplate="{StaticResource CustomerSuggestionTemplate}"
+                                  ItemContainerStyle="{StaticResource CustomerSuggestionContainerStyle}"
+                                  Padding="10,0" VerticalContentAlignment="Center"
+                                  FontFamily="Segoe UI" FontSize="14"
+                                  Background="#FBFCFD" Foreground="#1D2939"
+                                  BorderBrush="#D0D5DD" BorderThickness="1"
+                                  Loaded="CustomerNumberComboBox_Loaded"
+                                  SelectionChanged="CustomerNumberComboBox_SelectionChanged"/>
+                        <TextBlock x:Name="CustomerNameTextBlock" Grid.Row="1"
+                                   TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                   FontSize="12"
+                                   Foreground="{StaticResource MutedBrush}"
+                                   Margin="2,6,0,0" Visibility="Hidden"/>
                     </Grid>
-                    <TextBlock Text="Tätigkeit / Notiz" FontSize="14" FontWeight="SemiBold"
-                               Foreground="{StaticResource MutedBrush}" Margin="0,16,0,9"/>
+                    <TextBlock Text="Tätigkeit / Notiz" FontSize="12" FontWeight="SemiBold"
+                               Foreground="{StaticResource MutedBrush}" Margin="0,16,0,6"/>
                     <TextBox x:Name="NotesTextBox"
-                             MinHeight="76" MaxHeight="120"
-                             Padding="12,9"
+                             MinHeight="74" MaxHeight="110"
+                             Padding="10,9"
                              VerticalContentAlignment="Top"
                              TextWrapping="Wrap"
                              AcceptsReturn="True"
-                             FontFamily="Calibri" FontSize="15"
+                             FontFamily="Segoe UI" FontSize="14"
                              Background="#FBFCFD" Foreground="#1D2939"
                              BorderBrush="#D0D5DD" BorderThickness="1"
                              ToolTip="Notiz wird während der Zeiterfassung automatisch gespeichert"
                              TextChanged="NotesTextBox_TextChanged"/>
+
+                    <Border Background="#E9EDF1" CornerRadius="10" Padding="18"
+                            Margin="0,18,0,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="1"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <TextBlock Text="ERFASSUNGSBEGINN" Style="{StaticResource TimerLabelStyle}"/>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,7,0,0">
+                                    <TextBlock x:Name="StartTimeTextBlock" Text="--:--"
+                                               FontFamily="Segoe UI" FontSize="20" FontWeight="SemiBold"
+                                               Foreground="{StaticResource NavyBrush}"/>
+                                    <Button x:Name="EditStartTimeButton" Content="&#xE70F;"
+                                            FontFamily="Segoe MDL2 Assets" FontSize="13"
+                                            Foreground="{StaticResource NavyBrush}"
+                                            Background="Transparent" BorderBrush="Transparent"
+                                            BorderThickness="0" Width="30" Height="30" Margin="6,0,0,0"
+                                            ToolTip="Startzeit des laufenden Timers anpassen"
+                                            AutomationProperties.Name="Startzeit anpassen"
+                                            Visibility="Collapsed"
+                                            Click="EditStartTimeButton_Click"/>
+                                </StackPanel>
+                            </StackPanel>
+                            <Border Grid.Column="1" Width="1" Background="#D0D5DD"
+                                    Margin="0,2"/>
+                            <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="20,0,0,0">
+                                <TextBlock Text="VERSTRICHENE ZEIT" Style="{StaticResource TimerLabelStyle}"/>
+                                <TextBlock x:Name="ElapsedTimeTextBlock" Text="00:00:00"
+                                           FontFamily="Consolas" FontSize="25"
+                                           Foreground="{StaticResource NavyBrush}" Margin="0,3,0,0"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Grid Margin="0,16,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Button x:Name="StartButton" Grid.Column="0" Content="Start"
+                                Background="{StaticResource NavyBrush}" Foreground="White"
+                                BorderBrush="{StaticResource NavyBrush}"
+                                Style="{StaticResource ActionButtonStyle}"
+                                Click="StartButton_Click"/>
+                        <Button x:Name="PauseButton" Grid.Column="2" Content="Pause"
+                                Background="White" Foreground="{StaticResource NavyBrush}"
+                                BorderBrush="#D0D5DD"
+                                Style="{StaticResource ActionButtonStyle}"
+                                Click="PauseButton_Click" IsEnabled="False"/>
+                        <Button x:Name="StopButton" Grid.Column="4" Content="Stoppen"
+                                Background="White" Foreground="#B42318"
+                                BorderBrush="#FDA29B"
+                                Style="{StaticResource ActionButtonStyle}"
+                                Click="StopButton_Click" IsEnabled="False"/>
+                    </Grid>
                 </StackPanel>
             </Border>
-
-            <Grid Margin="0,14,0,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="14"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <Border Grid.Column="0" Background="White" CornerRadius="14" Padding="22"
-                        BorderBrush="#E6EBF0" BorderThickness="1">
-                    <StackPanel>
-                        <TextBlock Text="Erfassungsbeginn" FontSize="14" FontWeight="SemiBold"
-                                   Foreground="{StaticResource MutedBrush}"/>
-                        <TextBlock x:Name="StartTimeTextBlock" Text="--:--"
-                                   FontFamily="Calibri" FontSize="24" FontWeight="SemiBold"
-                                   Foreground="{StaticResource NavyBrush}" Margin="0,9,0,0"/>
-                    </StackPanel>
-                </Border>
-                <Border Grid.Column="2" Background="White" CornerRadius="14" Padding="22"
-                        BorderBrush="#E6EBF0" BorderThickness="1">
-                    <StackPanel>
-                        <TextBlock Text="Verstrichene Zeit" FontSize="14" FontWeight="SemiBold"
-                                   Foreground="{StaticResource MutedBrush}"/>
-                        <TextBlock x:Name="ElapsedTimeTextBlock" Text="00:00:00"
-                                   FontFamily="Consolas" FontSize="24" FontWeight="Normal"
-                                   Foreground="{StaticResource NavyBrush}" Margin="0,9,0,0"/>
-                    </StackPanel>
-                </Border>
-            </Grid>
-
-            <Grid Margin="0,18,0,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="12"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="12"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <Button x:Name="StartButton" Grid.Column="0" Content="Start"
-                        Background="{StaticResource AccentBrush}" Foreground="White"
-                        Style="{StaticResource ActionButtonStyle}"
-                        Click="StartButton_Click"/>
-                <Button x:Name="PauseButton" Grid.Column="2" Content="Pause"
-                        Background="#EEF2F6" Foreground="{StaticResource NavyBrush}"
-                        Style="{StaticResource ActionButtonStyle}"
-                        Click="PauseButton_Click" IsEnabled="False"/>
-                <Button x:Name="StopButton" Grid.Column="4" Content="Stoppen"
-                        Background="#B42318" Foreground="White"
-                        Style="{StaticResource ActionButtonStyle}"
-                        Click="StopButton_Click" IsEnabled="False"/>
-            </Grid>
-        </StackPanel>
+        </Grid>
     </Grid>
 </UserControl>

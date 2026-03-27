@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Windows;
@@ -59,6 +59,9 @@ public partial class KundenWindow : UserControl
 
     private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
     {
+        SearchPlaceholderTextBlock.Visibility = string.IsNullOrEmpty(SearchTextBox.Text)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         _customersView.Refresh();
         UpdateCustomerCount();
     }
@@ -87,6 +90,55 @@ public partial class KundenWindow : UserControl
         if (CustomersDataGrid.SelectedItem is DatabaseHelper.Customer customer)
         {
             ShowCustomerEditor(customer);
+        }
+    }
+
+    private void DeleteCustomerButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button button || button.DataContext is not DatabaseHelper.Customer customer)
+        {
+            return;
+        }
+
+        try
+        {
+            int timeLogCount = _dbHelper.GetTimeLogCountForCustomer(customer.ClientNumber);
+            if (timeLogCount > 0)
+            {
+                string entryLabel = timeLogCount == 1 ? "Zeiteintrag" : "Zeiteinträge";
+                var blockedDialog = new AppMessageWindow(
+                    "Kunde kann nicht gelöscht werden",
+                    $"Dem Kunden {customer.ClientNumber} sind {timeLogCount} {entryLabel} zugeordnet. Ein Kunde kann nur gelöscht werden, wenn keine Zeiteinträge mehr vorhanden sind. Löschen Sie zuerst alle zugehörigen Zeiteinträge.",
+                    isError: false)
+                {
+                    Owner = Window.GetWindow(this)
+                };
+                blockedDialog.ShowDialog();
+                return;
+            }
+
+            MessageBoxResult result = MessageBox.Show(
+                $"Für den Kunden {customer.ClientNumber} sind keine Zeiteinträge vorhanden. Kunden können nur gelöscht werden, wenn alle zugehörigen Zeiteinträge zuvor entfernt wurden.\n\nMöchten Sie diesen Kunden jetzt löschen?",
+                "Kunden löschen",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+            if (result != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            _dbHelper.DeleteCustomer(customer.ClientNumber);
+            _customers.Remove(customer);
+            _customersView.Refresh();
+            UpdateCustomerCount();
+        }
+        catch (System.Exception ex)
+        {
+            var error = new AppMessageWindow("Kunde nicht gelöscht", ex.Message)
+            {
+                Owner = Window.GetWindow(this)
+            };
+            error.ShowDialog();
         }
     }
 
