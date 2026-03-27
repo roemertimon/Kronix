@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using Microsoft.Data.Sqlite;
 
 namespace Kronix.Database;
@@ -730,6 +731,36 @@ public class DatabaseHelper
         {
             throw new InvalidOperationException($"Time log {timeLogId} was not found.");
         }
+    }
+
+    public void MarkTimeLogsBilled(IEnumerable<int> timeLogIds)
+    {
+        ArgumentNullException.ThrowIfNull(timeLogIds);
+        int[] ids = timeLogIds.Distinct().ToArray();
+        if (ids.Length == 0)
+        {
+            return;
+        }
+
+        using var connection = new SqliteConnection(_connectionString);
+        connection.Open();
+        using SqliteTransaction transaction = connection.BeginTransaction();
+        using var command = new SqliteCommand(
+            "UPDATE TimeLogs SET IsBilled = 1 WHERE Id = @id",
+            connection,
+            transaction);
+        SqliteParameter idParameter = command.Parameters.Add("@id", SqliteType.Integer);
+
+        foreach (int id in ids)
+        {
+            idParameter.Value = id;
+            if (command.ExecuteNonQuery() != 1)
+            {
+                throw new InvalidOperationException($"Time log {id} was not found.");
+            }
+        }
+
+        transaction.Commit();
     }
 
     public void UpdateTimeLog(int timeLogId, string clientNumber, DateTime startTime, DateTime endTime, string? notes = null)

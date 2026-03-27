@@ -29,9 +29,10 @@
                            Foreground="#344054" Margin="0,0,0,8"/>
                 <StackPanel Orientation="Horizontal">
                     <RadioButton x:Name="XlsxRadioButton" Content="Excel-Arbeitsmappe (.xlsx)"
-                                 GroupName="Format" IsChecked="True" Margin="0,0,20,0"/>
-                    <RadioButton x:Name="CsvRadioButton" Content="CSV (.csv)"
-                                 GroupName="Format"/>
+                                 GroupName="Format" IsChecked="True" Margin="0,0,20,0"
+                                 Checked="FormatRadioButton_Checked"/>
+                    <RadioButton x:Name="PdfRadioButton" Content="PDF (.pdf)"
+                                 GroupName="Format" Checked="FormatRadioButton_Checked"/>
                 </StackPanel>
 
                 <TextBlock Text="Aufteilung" FontSize="13" FontWeight="SemiBold"
@@ -41,7 +42,7 @@
                           FontSize="14" Foreground="#344054"
                           IsChecked="True"/>
                 <TextBlock x:Name="SplitHelpTextBlock"
-                           Text="Excel: eigenes Tabellenblatt je Kunde. CSV: eigene Datei je Kunde."
+                           Text="Excel: eigenes Tabellenblatt je Kunde. PDF: eigene Datei je Kunde."
                            FontSize="12" Foreground="#667085"
                            TextWrapping="Wrap" Margin="24,4,0,0"/>
                 <CheckBox x:Name="IncludeSummaryCheckBox"
@@ -49,6 +50,14 @@
                           FontSize="14" Foreground="#344054"
                           IsChecked="True" Margin="0,12,0,0"/>
                 <TextBlock Text="Enthält die Gesamtsumme und Stunden je Kunde."
+                           FontSize="12" Foreground="#667085"
+                           TextWrapping="Wrap" Margin="24,4,0,0"/>
+
+                <CheckBox x:Name="MarkExportedAsBilledCheckBox"
+                          Content="Exportierte Einträge als abgerechnet markieren"
+                          FontSize="14" Foreground="#344054"
+                          IsChecked="False" Margin="0,16,0,0"/>
+                <TextBlock Text="Setzt den Abgerechnet-Haken für alle erfolgreich exportierten Einträge."
                            FontSize="12" Foreground="#667085"
                            TextWrapping="Wrap" Margin="24,4,0,0"/>
 

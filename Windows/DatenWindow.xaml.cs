@@ -5,7 +5,6 @@ using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -197,6 +196,14 @@ public partial class DatenWindow : UserControl
         }
     }
 
+    private void DataGridRecords_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (!DataGridRecords.IsKeyboardFocusWithin)
+        {
+            DataGridRecords.SelectedItem = null;
+        }
+    }
+
     private void EditButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button button || button.DataContext is not DatabaseHelper.TimeLog log)
@@ -309,10 +316,10 @@ public partial class DatenWindow : UserControl
         }
 
         bool isXlsx = options.IsXlsx;
-        string extension = isXlsx ? ".xlsx" : ".csv";
+        string extension = isXlsx ? ".xlsx" : ".pdf";
         string filter = isXlsx
             ? "Excel-Arbeitsmappe (*.xlsx)|*.xlsx"
-            : "CSV-Datei (*.csv)|*.csv";
+            : "PDF-Datei (*.pdf)|*.pdf";
         var dialog = new SaveFileDialog
         {
             Title = "Zeiteinträge exportieren",
@@ -326,109 +333,66 @@ public partial class DatenWindow : UserControl
             return;
         }
 
+        List<DatabaseHelper.TimeLog> exportLogs = filteredLogs.Select(log => new DatabaseHelper.TimeLog
+        {
+            Id = log.Id,
+            ClientNumber = log.ClientNumber,
+            StartTime = log.StartTime,
+            EndTime = log.EndTime,
+            IsBilled = options.MarkExportedAsBilled || log.IsBilled,
+            Notes = log.Notes
+        }).ToList();
+
+        bool exportCreated = false;
         try
         {
             if (isXlsx)
             {
-                ExportToXlsx(dialog.FileName, filteredLogs, options.SeparateCustomers,
+                ExportToXlsx(dialog.FileName, exportLogs, options.SeparateCustomers,
                     options.IncludeSummary, options.UseDecimalHours,
                     FromDatePicker.SelectedDate, ToDatePicker.SelectedDate);
-            }
-            else if (options.SeparateCustomers)
-            {
-                List<string> exportedFiles = ExportCustomerCsvFiles(
-                    dialog.FileName, filteredLogs, options.UseDecimalHours);
-                ShowError("Export abgeschlossen",
-                    $"{filteredLogs.Count} Einträge wurden in {exportedFiles.Count} Kundendateien exportiert:\n{string.Join("\n", exportedFiles)}",
-                    isError: false);
-                return;
+                exportCreated = true;
             }
             else
             {
-                File.WriteAllText(dialog.FileName,
-                    BuildCsv(filteredLogs, options.UseDecimalHours),
-                    new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+                TimeLogPdfExporter.Export(
+                    dialog.FileName, exportLogs, options.UseDecimalHours, options.SeparateCustomers);
+                exportCreated = true;
             }
 
-            ShowError("Export abgeschlossen", $"{filteredLogs.Count} Einträge wurden exportiert.", isError: false);
+            if (options.MarkExportedAsBilled)
+            {
+                try
+                {
+                    _dbHelper.MarkTimeLogsBilled(filteredLogs.Select(log => log.Id));
+                    foreach (DatabaseHelper.TimeLog log in filteredLogs)
+                    {
+                        log.IsBilled = true;
+                    }
+                    _timeLogsView.Refresh();
+                    UpdateResultsCount();
+                }
+                catch (Exception ex)
+                {
+                    ShowError("Export erstellt, Abrechnung nicht gespeichert",
+                        $"Der Export wurde erstellt, aber die Einträge konnten nicht als abgerechnet markiert werden.\n{ex.Message}");
+                    return;
+                }
+            }
+
+            string completionMessage = $"{filteredLogs.Count} Einträge wurden exportiert.";
+            if (options.MarkExportedAsBilled)
+            {
+                completionMessage += "\nAlle exportierten Einträge wurden als abgerechnet markiert.";
+            }
+
+            ShowError("Export abgeschlossen", completionMessage, isError: false);
         }
         catch (Exception ex)
         {
-            ShowError("Export fehlgeschlagen", ex.Message);
+            ShowError(exportCreated ? "Export erstellt, aber Aktualisierung fehlgeschlagen" : "Export fehlgeschlagen",
+                ex.Message);
         }
-    }
-
-    private static string CsvField(string value)
-    {
-        return $"\"{value.Replace("\"", "\"\"")}\"";
-    }
-
-    private static string BuildCsv(
-        IReadOnlyCollection<DatabaseHelper.TimeLog> logs,
-        bool useDecimalHours)
-    {
-        var csv = new StringBuilder();
-        csv.AppendLine("Kundennummer;Startzeit;Endzeit;Dauer;Tätigkeit / Notiz;Abgerechnet");
-        foreach (DatabaseHelper.TimeLog log in logs)
-        {
-            TimeSpan? duration = GetDuration(log);
-            csv.Append(CsvField(log.ClientNumber ?? string.Empty)).Append(';')
-                .Append(CsvField(FormatDateTime(log.StartTime))).Append(';')
-                .Append(CsvField(FormatDateTime(log.EndTime))).Append(';')
-                .Append(CsvField(FormatExportDuration(duration, useDecimalHours))).Append(';')
-                .Append(CsvField(log.Notes ?? string.Empty)).Append(';')
-                .AppendLine(log.IsBilled ? "Ja" : "Nein");
-        }
-
-        return csv.ToString();
-    }
-
-    private static List<string> ExportCustomerCsvFiles(
-        string selectedPath,
-        IReadOnlyCollection<DatabaseHelper.TimeLog> logs,
-        bool useDecimalHours)
-    {
-        string directory = Path.GetDirectoryName(selectedPath) ?? Environment.CurrentDirectory;
-        string baseName = Path.GetFileNameWithoutExtension(selectedPath);
-        var exports = logs.GroupBy(
-                log => string.IsNullOrWhiteSpace(log.ClientNumber) ? "Ohne Kundennummer" : log.ClientNumber)
-            .Select(group => new
-            {
-                FilePath = Path.Combine(directory, $"{baseName}_Kunde_{MakeSafeFileName(group.Key)}.csv"),
-                Content = BuildCsv(group.ToList(), useDecimalHours)
-            })
-            .ToList();
-
-        string? existingFile = exports.Select(export => export.FilePath).FirstOrDefault(File.Exists);
-        if (existingFile is not null)
-        {
-            throw new IOException($"Die Datei {existingFile} existiert bereits. Bitte wählen Sie einen anderen Dateinamen.");
-        }
-
-        var createdFiles = new List<string>();
-        try
-        {
-            foreach (var export in exports)
-            {
-                using (var stream = new FileStream(export.FilePath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-                {
-                    createdFiles.Add(export.FilePath);
-                    using var writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
-                    writer.Write(export.Content);
-                }
-            }
-        }
-        catch
-        {
-            foreach (string createdFile in createdFiles)
-            {
-                File.Delete(createdFile);
-            }
-
-            throw;
-        }
-
-        return exports.Select(export => export.FilePath).ToList();
     }
 
     private void ExportToXlsx(
@@ -699,23 +663,6 @@ public partial class DatenWindow : UserControl
         return log.StartTime is DateTime startTime && log.EndTime is null
             ? DateTime.Now - startTime
             : null;
-    }
-
-    private static string FormatDateTime(DateTime? value)
-    {
-        return value?.ToString("dd.MM.yyyy HH:mm", CultureInfo.GetCultureInfo("de-DE")) ?? string.Empty;
-    }
-
-    private static string FormatExportDuration(TimeSpan? duration, bool useDecimalHours)
-    {
-        if (duration is not TimeSpan value)
-        {
-            return string.Empty;
-        }
-
-        return useDecimalHours
-            ? value.TotalHours.ToString("0.00", CultureInfo.GetCultureInfo("de-DE"))
-            : $"{(int)value.TotalHours:00}:{value.Minutes:00}";
     }
 
     private static string MakeSafeSheetName(string name)
