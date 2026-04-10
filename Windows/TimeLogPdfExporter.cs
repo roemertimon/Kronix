@@ -18,7 +18,11 @@ internal static class TimeLogPdfExporter
         string path,
         IReadOnlyCollection<DatabaseHelper.TimeLog> logs,
         bool useDecimalHours,
-        bool separateCustomers)
+        bool separateCustomers,
+        bool includeSummary,
+        DateTime? fromDate,
+        DateTime? toDate,
+        IReadOnlyDictionary<string, string> customerNames)
     {
         using var document = new PdfDocument();
         document.Info.Title = "Zeiteinträge";
@@ -29,6 +33,7 @@ internal static class TimeLogPdfExporter
         var detailFont = new XFont("Arial", 10);
         var noteFont = new XFont("Arial", 9);
         var mutedFont = new XFont("Arial", 8);
+        var summaryFont = new XFont("Arial", 10, XFontStyleEx.Bold);
         CultureInfo german = CultureInfo.GetCultureInfo("de-DE");
 
         List<(string CustomerNumber, List<DatabaseHelper.TimeLog> Logs)> groups = logs
@@ -49,6 +54,70 @@ internal static class TimeLogPdfExporter
         string currentCustomer = string.Empty;
         int currentGroupCount = logs.Count;
         bool firstPage = true;
+
+        void StartSummaryPage(bool continuation = false)
+        {
+            graphics?.Dispose();
+            PdfPage page = document.AddPage();
+            page.Size = PageSize.A4;
+            graphics = XGraphics.FromPdfPage(page);
+            contentWidth = page.Width.Point - Margin * 2;
+            pageBottom = page.Height.Point - Margin;
+            y = Margin;
+
+            graphics.DrawString(
+                continuation ? "Abrechnungsübersicht (Fortsetzung)" : "Abrechnungsübersicht",
+                titleFont, XBrushes.DarkSlateBlue, new XPoint(Margin, y + titleFont.Height));
+            y += titleFont.Height + 5;
+            string period = FormatPeriod(logs, fromDate, toDate, german);
+            graphics.DrawString(
+                $"Zeitraum: {period} · Exportiert am {DateTime.Now.ToString("dd.MM.yyyy HH:mm", german)}",
+                mutedFont, XBrushes.Gray, new XPoint(Margin, y + mutedFont.Height));
+            y += mutedFont.Height + 15;
+
+            TimeSpan totalDuration = SumDuration(logs);
+            TimeSpan billedDuration = SumDuration(logs.Where(log => log.IsBilled));
+            TimeSpan openDuration = SumDuration(logs.Where(log => !log.IsBilled));
+            DrawSummaryMetric("Einträge", logs.Count.ToString(german), 0);
+            DrawSummaryMetric("Gesamtzeit", FormatDuration(totalDuration, useDecimalHours, german), 1);
+            DrawSummaryMetric("Abgerechnet", $"{logs.Count(log => log.IsBilled)} · {FormatDuration(billedDuration, useDecimalHours, german)}", 2);
+            DrawSummaryMetric("Offen", $"{logs.Count(log => !log.IsBilled)} · {FormatDuration(openDuration, useDecimalHours, german)}", 3);
+            y += 65;
+
+            double numberWidth = contentWidth * 0.18;
+            double nameWidth = contentWidth * 0.42;
+            double countWidth = contentWidth * 0.16;
+            double hoursWidth = contentWidth - numberWidth - nameWidth - countWidth;
+            graphics.DrawRectangle(new XSolidBrush(XColor.FromArgb(234, 240, 246)),
+                Margin, y, contentWidth, 22);
+            graphics.DrawString("Kundennummer", mutedFont, XBrushes.DarkSlateGray,
+                new XRect(Margin + 6, y + 5, numberWidth - 6, 14), XStringFormats.TopLeft);
+            graphics.DrawString("Kunde", mutedFont, XBrushes.DarkSlateGray,
+                new XRect(Margin + numberWidth + 6, y + 5, nameWidth - 6, 14), XStringFormats.TopLeft);
+            graphics.DrawString("Einträge", mutedFont, XBrushes.DarkSlateGray,
+                new XRect(Margin + numberWidth + nameWidth + 6, y + 5, countWidth - 6, 14), XStringFormats.TopLeft);
+            graphics.DrawString("Gesamtzeit", mutedFont, XBrushes.DarkSlateGray,
+                new XRect(Margin + numberWidth + nameWidth + countWidth + 6, y + 5, hoursWidth - 6, 14), XStringFormats.TopLeft);
+            y += 22;
+        }
+
+        void DrawSummaryMetric(string label, string value, int index)
+        {
+            if (graphics is null)
+            {
+                throw new InvalidOperationException("Die PDF-Seite konnte nicht erstellt werden.");
+            }
+
+            double gap = 8;
+            double metricWidth = (contentWidth - gap * 3) / 4;
+            double x = Margin + index * (metricWidth + gap);
+            graphics.DrawRoundedRectangle(new XPen(XColor.FromArgb(225, 231, 238)),
+                new XSolidBrush(XColor.FromArgb(247, 249, 251)), x, y, metricWidth, 48, 5, 5);
+            graphics.DrawString(label, mutedFont, XBrushes.Gray,
+                new XPoint(x + 8, y + 15));
+            graphics.DrawString(value, summaryFont, XBrushes.DarkSlateBlue,
+                new XRect(x + 8, y + 22, metricWidth - 16, 22), XStringFormats.TopLeft);
+        }
 
         void StartPage()
         {
@@ -85,6 +154,48 @@ internal static class TimeLogPdfExporter
             {
                 StartPage();
             }
+        }
+
+        if (includeSummary)
+        {
+            StartSummaryPage();
+            double numberWidth = contentWidth * 0.18;
+            double nameWidth = contentWidth * 0.42;
+            double countWidth = contentWidth * 0.16;
+            double hoursWidth = contentWidth - numberWidth - nameWidth - countWidth;
+
+            foreach ((string customerNumber, List<DatabaseHelper.TimeLog> customerLogs) in groups)
+            {
+                if (graphics is null || y + 21 > pageBottom)
+                {
+                    StartSummaryPage(continuation: true);
+                }
+
+                if (graphics is null)
+                {
+                    throw new InvalidOperationException("Die PDF-Seite konnte nicht erstellt werden.");
+                }
+
+                string customerName = customerNames.TryGetValue(customerNumber, out string? name)
+                    ? name
+                    : customerNumber;
+                graphics.DrawString(customerNumber, detailFont, XBrushes.DarkSlateGray,
+                    new XRect(Margin + 6, y + 4, numberWidth - 6, 14), XStringFormats.TopLeft);
+                graphics.DrawString(customerName, detailFont, XBrushes.DarkSlateGray,
+                    new XRect(Margin + numberWidth + 6, y + 4, nameWidth - 6, 14), XStringFormats.TopLeft);
+                graphics.DrawString(customerLogs.Count.ToString(german), detailFont, XBrushes.DarkSlateGray,
+                    new XRect(Margin + numberWidth + nameWidth + 6, y + 4, countWidth - 6, 14), XStringFormats.TopLeft);
+                graphics.DrawString(FormatDuration(SumDuration(customerLogs), useDecimalHours, german),
+                    detailFont, XBrushes.DarkSlateGray,
+                    new XRect(Margin + numberWidth + nameWidth + countWidth + 6, y + 4, hoursWidth - 6, 14),
+                    XStringFormats.TopLeft);
+                y += 21;
+                graphics.DrawLine(new XPen(XColor.FromArgb(230, 233, 237)), Margin, y,
+                    Margin + contentWidth, y);
+            }
+
+            graphics?.Dispose();
+            graphics = null;
         }
 
         foreach ((string customerNumber, List<DatabaseHelper.TimeLog> customerLogs) in groups)
@@ -224,7 +335,46 @@ internal static class TimeLogPdfExporter
 
         return useDecimalHours
             ? $"{value.TotalHours.ToString("0.00", culture)} h"
-            : $"{(int)value.TotalHours:00}:{value.Minutes:00} h";
+            : $"{(int)value.TotalHours:00}:{value.Minutes:00} Std.";
+    }
+
+    private static string FormatDuration(TimeSpan duration, bool useDecimalHours, CultureInfo culture)
+    {
+        return FormatDuration((TimeSpan?)duration, useDecimalHours, culture);
+    }
+
+    private static TimeSpan SumDuration(IEnumerable<DatabaseHelper.TimeLog> logs)
+    {
+        return TimeSpan.FromTicks(logs.Sum(log => GetDuration(log)?.Ticks ?? 0));
+    }
+
+    private static string FormatPeriod(
+        IReadOnlyCollection<DatabaseHelper.TimeLog> logs,
+        DateTime? fromDate,
+        DateTime? toDate,
+        CultureInfo culture)
+    {
+        DateTime? firstDate = fromDate?.Date ??
+            logs.Where(log => log.StartTime.HasValue).Select(log => log.StartTime!.Value.Date)
+                .DefaultIfEmpty().Min();
+        DateTime? lastDate = toDate?.Date ??
+            logs.Select(log => (log.EndTime ?? log.StartTime)?.Date)
+                .Where(date => date.HasValue).Select(date => date!.Value)
+                .DefaultIfEmpty().Max();
+
+        if (!firstDate.HasValue || firstDate == default)
+        {
+            return "Keine Datumsangaben";
+        }
+
+        if (!lastDate.HasValue || lastDate == default)
+        {
+            lastDate = firstDate;
+        }
+
+        return firstDate == lastDate
+            ? firstDate.Value.ToString("dd.MM.yyyy", culture)
+            : $"{firstDate.Value.ToString("dd.MM.yyyy", culture)} – {lastDate.Value.ToString("dd.MM.yyyy", culture)}";
     }
 
     private static TimeSpan? GetDuration(DatabaseHelper.TimeLog log)
