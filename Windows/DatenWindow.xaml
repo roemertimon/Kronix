@@ -206,7 +206,7 @@
                                     SelectedDateChanged="DateFilter_Changed"/>
                     </StackPanel>
                     <StackPanel Grid.Column="6" VerticalAlignment="Bottom">
-                        <TextBlock Text="Status" Style="{StaticResource FilterLabel}"/>
+                        <TextBlock Text="Abrechnung" Style="{StaticResource FilterLabel}"/>
                         <StackPanel Orientation="Horizontal" Height="38" VerticalAlignment="Center">
                             <RadioButton x:Name="AllStatusRadioButton" Content="Alle"
                                          GroupName="TimeLogStatus" IsChecked="True"
