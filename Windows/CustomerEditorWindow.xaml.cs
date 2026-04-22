@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
 using Kronix.Database;
+using Kronix.Logging;
 
 namespace Kronix.Windows;
 
@@ -68,6 +69,7 @@ public partial class CustomerEditorWindow : Window
 
     private void ShowValidationError(string message)
     {
+        AppLogger.Warning("validation.customer", "A customer form submission failed validation.");
         ErrorTextBlock.Text = message;
         ErrorTextBlock.Visibility = Visibility.Visible;
     }

@@ -3,8 +3,7 @@ using System.IO;
 using System.Windows;
 using WinForms = System.Windows.Forms;
 using Kronix.Database;
-using Notification.Core;
-using Notification.Wpf;
+using Kronix.Logging;
 
 namespace Kronix.Windows;
 
@@ -15,7 +14,6 @@ public partial class DashboardWindow : Window
     private static WinForms.ToolStripMenuItem? _stopTrackingMenuItem;
 
     private readonly DatabaseHelper _dbHelper;
-    private readonly NotificationManager _notificationManager = new();
     private bool _allowClose;
 
     public DashboardWindow(DatabaseHelper dbHelper)
@@ -38,6 +36,7 @@ public partial class DashboardWindow : Window
         }
 
         e.Cancel = true;
+        AppLogger.Information("window.hidden_to_tray", "The dashboard was hidden to the system tray.");
         HideToTray();
     }
 
@@ -54,8 +53,9 @@ public partial class DashboardWindow : Window
     
     private void ShowMessage()
     {
-        // Display the notification
-        _notificationManager.Show("Kronix", "Kronix läuft jetzt im Hintergrund!", NotificationType.Information);
+        new KronixToastWindow("Kronix läuft im Hintergrund",
+            "Die Anwendung ist weiterhin über das Symbol im Infobereich erreichbar.",
+            isSuccess: false).Show();
     }
 
     private void DatabaseStateChanged(object? sender, EventArgs e)
@@ -97,7 +97,8 @@ public partial class DashboardWindow : Window
         {
             _stopTrackingMenuItem.Enabled = false;
             _stopTrackingMenuItem.Text = "Zeiterfassung nicht verfügbar";
-            Console.WriteLine("Could not read active tracking state for tray menu: " + ex.Message);
+            AppLogger.Error("tray.active_tracking_read_failed",
+                "Could not read the active time-tracking state for the tray menu.", ex);
         }
     }
 
@@ -121,11 +122,15 @@ public partial class DashboardWindow : Window
                 "Kronix",
                 $"Zeiterfassung für Kunde {openLog.ClientNumber} wurde gestoppt.",
                 WinForms.ToolTipIcon.Info);
+            AppLogger.Information("timelog.stopped_from_tray",
+                "An active time-tracking entry was stopped from the system tray.");
             ShowZeiterfassung();
             UpdateTrayMenu();
         }
         catch (Exception ex)
         {
+            AppLogger.Error("timelog.tray_stop_failed",
+                "Could not stop the active time-tracking entry from the system tray.", ex);
             _notifyIcon?.ShowBalloonTip(4000, "Kronix", $"Stoppen fehlgeschlagen: {ex.Message}",
                 WinForms.ToolTipIcon.Error);
         }
@@ -160,6 +165,7 @@ public partial class DashboardWindow : Window
             _notifyIcon = null;
             _stopTrackingMenuItem = null;
             _trayOwner = null;
+            AppLogger.Information("application.exit_requested", "The application was closed from the system tray.");
         }
 
         base.OnClosed(e);
@@ -180,6 +186,7 @@ public partial class DashboardWindow : Window
 
     private void ZeiterfassungButton_Click(object sender, RoutedEventArgs e)
     {
+        AppLogger.Information("navigation.time_tracking", "Opened the time-tracking tab.");
         ShowZeiterfassung();
     }
 
@@ -195,6 +202,7 @@ public partial class DashboardWindow : Window
 
     private void KundenButton_Click(object sender, RoutedEventArgs e)
     {
+        AppLogger.Information("navigation.customers", "Opened the customers tab.");
         MainContentControl.Content = new KundenWindow(_dbHelper);
         
         ZeiterfassungBtn.IsEnabled = true;
@@ -205,6 +213,7 @@ public partial class DashboardWindow : Window
 
     private void DatenButton_Click(object sender, RoutedEventArgs e)
     {
+        AppLogger.Information("navigation.time_logs", "Opened the time entries tab.");
         MainContentControl.Content = new DatenWindow(_dbHelper);
         
         ZeiterfassungBtn.IsEnabled = true;
@@ -215,6 +224,7 @@ public partial class DashboardWindow : Window
 
     private void EinstellungenButton_Click(object sender, RoutedEventArgs e)
     {
+        AppLogger.Information("navigation.settings", "Opened the settings tab.");
         MainContentControl.Content = new EinstellungenWindow(_dbHelper);
 
         ZeiterfassungBtn.IsEnabled = true;

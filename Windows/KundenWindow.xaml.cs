@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using Kronix.Database;
+using Kronix.Logging;
 
 namespace Kronix.Windows;
 
@@ -113,6 +114,8 @@ public partial class KundenWindow : UserControl
             int timeLogCount = _dbHelper.GetTimeLogCountForCustomer(customer.ClientNumber);
             if (timeLogCount > 0)
             {
+                AppLogger.Warning("customers.delete_blocked",
+                    "Customer deletion was blocked because time entries are still associated.");
                 string entryLabel = timeLogCount == 1 ? "Zeiteintrag" : "Zeiteinträge";
                 var blockedDialog = new AppMessageWindow(
                     "Kunde kann nicht gelöscht werden",
@@ -139,9 +142,11 @@ public partial class KundenWindow : UserControl
             _customers.Remove(customer);
             _customersView.Refresh();
             UpdateCustomerCount();
+            AppLogger.Information("customers.deleted", "Deleted a customer record.");
         }
         catch (System.Exception ex)
         {
+            AppLogger.Error("customers.delete_failed", "Could not delete a customer record.", ex);
             var error = new AppMessageWindow("Kunde nicht gelöscht", ex.Message)
             {
                 Owner = Window.GetWindow(this)
@@ -165,9 +170,12 @@ public partial class KundenWindow : UserControl
         {
             _dbHelper.SaveCustomer(editor.Customer, editor.OriginalClientNumber);
             LoadCustomers();
+            AppLogger.Information(editor.OriginalClientNumber is null ? "customers.created" : "customers.updated",
+                editor.OriginalClientNumber is null ? "Created a customer record." : "Updated a customer record.");
         }
         catch (System.Exception ex)
         {
+            AppLogger.Error("customers.save_failed", "Could not save a customer record.", ex);
             var error = new AppMessageWindow("Kunde nicht gespeichert", ex.Message)
             {
                 Owner = Window.GetWindow(this)

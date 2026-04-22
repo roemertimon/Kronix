@@ -1,7 +1,9 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using Kronix.Logging;
 using Kronix.Database;
 using Microsoft.Win32;
 
@@ -15,6 +17,7 @@ public partial class EinstellungenWindow : UserControl
     {
         InitializeComponent();
         _dbHelper = dbHelper;
+        LogPathTextBlock.Text = AppLogger.LogFilePath;
         RefreshDatabaseInfo();
     }
 
@@ -56,7 +59,7 @@ public partial class EinstellungenWindow : UserControl
             return;
         }
 
-        RunDatabaseAction(() => _dbHelper.SwitchToDatabase(dialog.FileName),
+        RunDatabaseAction("database.select", () => _dbHelper.SwitchToDatabase(dialog.FileName),
             "Datenbank gewechselt. Die bisherige Datenbankdatei bleibt unverändert erhalten.");
     }
 
@@ -76,13 +79,13 @@ public partial class EinstellungenWindow : UserControl
             return;
         }
 
-        RunDatabaseAction(() => _dbHelper.CreateAndSwitchToDatabase(dialog.FileName),
+        RunDatabaseAction("database.create", () => _dbHelper.CreateAndSwitchToDatabase(dialog.FileName),
             "Neue leere Datenbank wurde erstellt und ist jetzt aktiv. Die bisherige Datei bleibt erhalten.");
     }
 
     private void CheckDatabaseButton_Click(object sender, RoutedEventArgs e)
     {
-        RunDatabaseAction(() =>
+        RunDatabaseAction("database.integrity_check", () =>
         {
             string result = _dbHelper.CheckDatabaseIntegrity(repairSchema: true);
             if (!string.Equals(result, "ok", StringComparison.OrdinalIgnoreCase))
@@ -107,7 +110,7 @@ public partial class EinstellungenWindow : UserControl
             return;
         }
 
-        RunDatabaseAction(() => _dbHelper.ExportDatabaseArchive(dialog.FileName),
+        RunDatabaseAction("database.archive_export", () => _dbHelper.ExportDatabaseArchive(dialog.FileName),
             "Die ZIP-Sicherung wurde erstellt.");
     }
 
@@ -138,22 +141,75 @@ public partial class EinstellungenWindow : UserControl
             return;
         }
 
-        RunDatabaseAction(() => _dbHelper.ImportDatabaseArchive(openDialog.FileName, saveDialog.FileName),
+        RunDatabaseAction("database.archive_import",
+            () => _dbHelper.ImportDatabaseArchive(openDialog.FileName, saveDialog.FileName),
             "Sicherung wurde in eine neue Datei wiederhergestellt und ist jetzt aktiv.");
     }
 
-    private void RunDatabaseAction(Action action, string successMessage)
+    private void RunDatabaseAction(string eventName, Action action, string successMessage)
     {
         try
         {
             action();
             RefreshDatabaseInfo();
+            AppLogger.Information(eventName, "A database settings action completed.");
             ShowMessage("Abgeschlossen", successMessage, isError: false);
         }
         catch (Exception ex)
         {
+            AppLogger.Error($"{eventName}_failed",
+                "A database maintenance or backup action failed.", ex);
             RefreshDatabaseInfo();
             ShowMessage("Datenbankaktion fehlgeschlagen", ex.Message);
+        }
+    }
+
+    private void ViewLogButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            AppLogger.Information("settings.log_view_opened", "Opened the application log viewer.");
+            var viewer = new LogViewerWindow(AppLogger.LogFilePath, AppLogger.ReadCurrentLog())
+            {
+                Owner = Window.GetWindow(this)
+            };
+            viewer.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("settings.log_view_failed", "Could not open the application log viewer.", ex);
+            ShowMessage("Protokoll konnte nicht geöffnet werden", ex.Message);
+        }
+    }
+
+    private void OpenLogFolderButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            string? directory = Path.GetDirectoryName(AppLogger.LogFilePath);
+            if (string.IsNullOrWhiteSpace(directory))
+            {
+                throw new InvalidOperationException("Der Protokollordner konnte nicht ermittelt werden.");
+            }
+
+            Directory.CreateDirectory(directory);
+            using Process? process = Process.Start(new ProcessStartInfo
+            {
+                FileName = directory,
+                UseShellExecute = true
+            });
+            if (process is null)
+            {
+                throw new InvalidOperationException("Der Protokollordner konnte nicht geöffnet werden.");
+            }
+
+            AppLogger.Information("settings.log_folder_opened", "Opened the application log folder.");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("settings.log_folder_open_failed",
+                "Could not open the application log folder.", ex);
+            ShowMessage("Protokollordner konnte nicht geöffnet werden", ex.Message);
         }
     }
 
