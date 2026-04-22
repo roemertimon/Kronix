@@ -9,8 +9,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Kronix.Database;
-using Notification.Core;
-using Notification.Wpf;
+using Kronix.Logging;
 using Color = System.Windows.Media.Color;
 
 namespace Kronix.Windows;
@@ -24,7 +23,6 @@ public partial class Zeiterfassung : UserControl
     private DateTime _startTime;           // To store the start time
     private DispatcherTimer _timer;        // Timer to update elapsed time
     private readonly DispatcherTimer _notesSaveTimer;
-    private readonly NotificationManager _notificationManager;
     private int? _activeTimeLogId;
     private bool _updatingNotes;
     private bool _updatingCustomerSelection;
@@ -40,7 +38,6 @@ public partial class Zeiterfassung : UserControl
         _timer = new DispatcherTimer();
         _notesSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
         _notesSaveTimer.Tick += NotesSaveTimer_Tick;
-        _notificationManager = new NotificationManager();
         Unloaded += Zeiterfassung_Unloaded;
 
         RestoreActiveTimeLog();
@@ -90,6 +87,8 @@ public partial class Zeiterfassung : UserControl
     {
         if (!_dbHelper.IsDatabaseInitialized())
         {
+            AppLogger.Warning("timelog.start_database_unavailable",
+                "A time-tracking start was rejected because the database is unavailable.");
             ShowError("Datenbank nicht verfügbar",
                 _dbHelper.InitializationError ??
                 "Öffnen Sie Einstellungen, um eine Datenbank auszuwählen oder neu anzulegen.");
@@ -100,6 +99,8 @@ public partial class Zeiterfassung : UserControl
 
         if (!int.TryParse(clientNumber, out _))
         {
+            AppLogger.Warning("timelog.start_invalid_customer",
+                "A time-tracking start was rejected because the customer number was invalid.");
             ShowError("Kundennummer fehlt", "Bitte geben Sie eine gültige Kundennummer ein.");
             return;
         }
@@ -119,6 +120,7 @@ public partial class Zeiterfassung : UserControl
                 }
 
                 _dbHelper.SaveCustomer(customerEditor.Customer);
+                AppLogger.Information("customers.created", "Created a customer during timer setup.");
                 customer = customerEditor.Customer;
             }
 
@@ -126,6 +128,8 @@ public partial class Zeiterfassung : UserControl
         }
         catch (Exception ex)
         {
+            AppLogger.Error("timelog.customer_prepare_failed",
+                "Could not prepare customer data before starting time tracking.", ex);
             ShowError("Kundendaten nicht gespeichert", ex.Message);
             return;
         }
@@ -139,6 +143,7 @@ public partial class Zeiterfassung : UserControl
         }
         catch (Exception ex)
         {
+            AppLogger.Error("timelog.start_failed", "Could not start time tracking.", ex);
             ShowError("Zeiterfassung konnte nicht starten", ex.Message);
             return;
         }
@@ -168,7 +173,8 @@ public partial class Zeiterfassung : UserControl
         
         // Set the start time in StartTimeTextBlock
         // Confirm the time logging start to the user
-        _notificationManager.Show("Kronix", $"Zeiterfassung gestartet für Kundennummer: {clientNumber} um {startTime}", NotificationType.Success);
+        new KronixToastWindow("Zeiterfassung gestartet",
+            $"Kunde {clientNumber} · {startTime:HH:mm} Uhr", isSuccess: true).Show();
     }
 
 
@@ -179,6 +185,8 @@ public partial class Zeiterfassung : UserControl
 
         if (_activeTimeLogId is null)
         {
+            AppLogger.Warning("timelog.pause_without_active_entry",
+                "A pause was requested without an active time entry.");
             ShowError("Keine laufende Zeiterfassung", "Aktuell läuft keine Zeiterfassung, die pausiert werden kann.");
             return;
         }
@@ -192,12 +200,15 @@ public partial class Zeiterfassung : UserControl
         {
             if (!_dbHelper.StopTimeLog(_activeTimeLogId.Value, pauseTime))
             {
+                AppLogger.Warning("timelog.pause_missing_entry",
+                    "Pause was requested but the active time entry no longer exists.");
                 ShowError("Pause nicht gespeichert", "Der laufende Zeiteintrag wurde nicht gefunden.");
                 return;
             }
         }
         catch (Exception ex)
         {
+            AppLogger.Error("timelog.pause_failed", "Could not pause time tracking.", ex);
             ShowError("Pause nicht gespeichert", ex.Message);
             return;
         }
@@ -210,7 +221,9 @@ public partial class Zeiterfassung : UserControl
         PauseButton.IsEnabled = false;
 
         // Confirm the pause to the user
-        _notificationManager.Show("Kronix", $"Zeiterfassung pausiert für Kundennummer: {clientNumber} um {pauseTime}", NotificationType.Information);
+        new KronixToastWindow("Zeiterfassung pausiert",
+            $"Kunde {clientNumber} · {pauseTime:HH:mm} Uhr", isSuccess: false).Show();
+        AppLogger.Information("timelog.paused", "Paused time tracking.");
     }
 
 
@@ -221,6 +234,8 @@ public partial class Zeiterfassung : UserControl
 
         if (string.IsNullOrEmpty(clientNumber))
         {
+            AppLogger.Warning("timelog.stop_without_customer",
+                "A stop was requested without a selected customer.");
             ShowError("Kundennummer fehlt", "Bitte geben Sie eine gültige Kundennummer ein.");
             return;
         }
@@ -237,12 +252,15 @@ public partial class Zeiterfassung : UserControl
             {
                 if (!_dbHelper.StopTimeLog(timeLogId, stopTime))
                 {
+                    AppLogger.Warning("timelog.stop_missing_entry",
+                        "Stop was requested but the active time entry no longer exists.");
                     ShowError("Eintrag nicht gespeichert", "Der laufende Zeiteintrag wurde nicht gefunden.");
                     return;
                 }
             }
             catch (Exception ex)
             {
+                AppLogger.Error("timelog.stop_failed", "Could not stop time tracking.", ex);
                 ShowError("Eintrag nicht gespeichert", ex.Message);
                 return;
             }
@@ -270,7 +288,9 @@ public partial class Zeiterfassung : UserControl
         _timer = new DispatcherTimer();
 
         // Confirm the stop and save to the user
-        _notificationManager.Show("Kronix", $"Zeiterfassung gestoppt und gespeichert für Kundennummer: {clientNumber} um {stopTime}", NotificationType.Success);
+        new KronixToastWindow("Zeiterfassung gespeichert",
+            $"Kunde {clientNumber} · {stopTime:HH:mm} Uhr", isSuccess: true).Show();
+        AppLogger.Information("timelog.stopped", "Stopped and saved time tracking.");
     }
 
     private void ShowError(string title, string message)
@@ -310,10 +330,12 @@ public partial class Zeiterfassung : UserControl
         try
         {
             _dbHelper.UpdateOpenTimeLogNotes(timeLogId, NotesTextBox.Text);
+            AppLogger.Information("timelog.notes_saved", "Saved notes for the active time entry.");
             return true;
         }
         catch (Exception ex)
         {
+            AppLogger.Error("timelog.notes_save_failed", "Could not save notes for the active time entry.", ex);
             ShowError("Notiz nicht gespeichert", ex.Message);
             return false;
         }
@@ -484,6 +506,8 @@ public partial class Zeiterfassung : UserControl
         }
         catch (Exception ex)
         {
+            AppLogger.Error("timelog.start_time_edit_failed",
+                "Could not update the start time of the active entry.", ex);
             ShowError("Startzeit nicht geändert", ex.Message);
         }
     }

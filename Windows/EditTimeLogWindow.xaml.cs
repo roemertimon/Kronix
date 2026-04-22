@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Input;
 using Kronix.Database;
+using Kronix.Logging;
 
 namespace Kronix.Windows;
 
@@ -95,15 +96,15 @@ public partial class EditTimeLogWindow : Window
             return;
         }
 
-        if (IsNewEntry && endTime > DateTime.Now)
+        if (endTime > DateTime.Now)
         {
-            ShowValidationError("Das Ende eines manuellen Eintrags darf nicht in der Zukunft liegen.");
+            ShowValidationError("Die Endzeit darf nicht in der Zukunft liegen.");
             return;
         }
 
-        if (IsNewEntry && startTime > DateTime.Now)
+        if (startTime > DateTime.Now)
         {
-            ShowValidationError("Der Beginn eines manuellen Eintrags darf nicht in der Zukunft liegen.");
+            ShowValidationError("Die Startzeit darf nicht in der Zukunft liegen.");
             return;
         }
 
@@ -115,6 +116,7 @@ public partial class EditTimeLogWindow : Window
 
     private void ShowValidationError(string message)
     {
+        AppLogger.Warning("validation.time_entry", "A time-entry form submission failed validation.");
         ErrorTextBlock.Text = message;
         ErrorTextBlock.Visibility = Visibility.Visible;
     }

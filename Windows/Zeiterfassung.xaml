@@ -42,10 +42,69 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ActionBorder" Property="Opacity" Value="0.88"/>
+                                <Setter TargetName="ActionBorder" Property="Background" Value="#2D4A68"/>
+                                <Setter TargetName="ActionBorder" Property="BorderBrush" Value="#2D4A68"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="ActionBorder" Property="Opacity" Value="0.76"/>
+                                <Setter TargetName="ActionBorder" Property="Background" Value="#182A3D"/>
+                                <Setter TargetName="ActionBorder" Property="BorderBrush" Value="#182A3D"/>
+                                <Setter TargetName="ActionBorder" Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ActionBorder" Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="PauseActionButtonStyle" TargetType="Button"
+               BasedOn="{StaticResource ActionButtonStyle}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ActionBorder" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ActionBorder" Property="Background" Value="#EAF0F6"/>
+                                <Setter TargetName="ActionBorder" Property="BorderBrush" Value="#98AFC4"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ActionBorder" Property="Background" Value="#DCE7F0"/>
+                                <Setter TargetName="ActionBorder" Property="Opacity" Value="0.95"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ActionBorder" Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="StopActionButtonStyle" TargetType="Button"
+               BasedOn="{StaticResource ActionButtonStyle}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ActionBorder" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ActionBorder" Property="Background" Value="#FEE4E2"/>
+                                <Setter TargetName="ActionBorder" Property="BorderBrush" Value="#F97066"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ActionBorder" Property="Background" Value="#FECDCA"/>
+                                <Setter TargetName="ActionBorder" Property="Opacity" Value="0.95"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="ActionBorder" Property="Opacity" Value="0.45"/>
@@ -168,12 +227,12 @@
                         <Button x:Name="PauseButton" Grid.Column="2" Content="Pause"
                                 Background="White" Foreground="{StaticResource NavyBrush}"
                                 BorderBrush="#D0D5DD"
-                                Style="{StaticResource ActionButtonStyle}"
+                                Style="{StaticResource PauseActionButtonStyle}"
                                 Click="PauseButton_Click" IsEnabled="False"/>
                         <Button x:Name="StopButton" Grid.Column="4" Content="Stoppen"
                                 Background="White" Foreground="#B42318"
                                 BorderBrush="#FDA29B"
-                                Style="{StaticResource ActionButtonStyle}"
+                                Style="{StaticResource StopActionButtonStyle}"
                                 Click="StopButton_Click" IsEnabled="False"/>
                     </Grid>
                 </StackPanel>

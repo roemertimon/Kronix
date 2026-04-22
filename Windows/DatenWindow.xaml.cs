@@ -10,6 +10,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using Kronix.Database;
+using Kronix.Logging;
 using ClosedXML.Excel;
 using Microsoft.Win32;
 
@@ -182,17 +183,36 @@ public partial class DatenWindow : UserControl
             return;
         }
 
+        bool isBilled = checkBox.IsChecked == true;
+        bool previousIsBilled = !isBilled;
+        if (!DataGridRecords.CommitEdit(DataGridEditingUnit.Cell, true) ||
+            !DataGridRecords.CommitEdit(DataGridEditingUnit.Row, true))
+        {
+            log.IsBilled = previousIsBilled;
+            checkBox.IsChecked = previousIsBilled;
+            AppLogger.Warning("timelog.billing_edit_not_committed",
+                "The billed state could not be changed because the grid edit could not be committed.");
+            ShowError("Abrechnung nicht geändert",
+                "Die Tabellenzeile konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.");
+            return;
+        }
+
         try
         {
-            _dbHelper.UpdateTimeLogBilled(log.Id, checkBox.IsChecked == true);
-            log.IsBilled = checkBox.IsChecked == true;
+            _dbHelper.UpdateTimeLogBilled(log.Id, isBilled);
+            log.IsBilled = isBilled;
             _timeLogsView.Refresh();
             UpdateResultsCount();
+            AppLogger.Information("timelog.billing_changed",
+                $"Changed the billed state of one time entry to {isBilled}.");
         }
         catch (Exception ex)
         {
+            log.IsBilled = previousIsBilled;
+            checkBox.IsChecked = previousIsBilled;
+            AppLogger.Error("timelog.billing_update_failed",
+                "Could not update the billed state of a time entry.", ex);
             ShowError("Abrechnung nicht gespeichert", ex.Message);
-            LoadAllTimeLogs();
         }
     }
 
@@ -243,9 +263,12 @@ public partial class DatenWindow : UserControl
 
             _timeLogsView.Refresh();
             UpdateResultsCount();
+            AppLogger.Information("timelog.updated",
+                editor.IsOpenEntry ? "Updated the start time of an open time entry." : "Updated a time entry.");
         }
         catch (Exception ex)
         {
+            AppLogger.Error("timelog.update_failed", "Could not update a time entry.", ex);
             ShowError("Änderungen nicht gespeichert", ex.Message);
         }
     }
@@ -283,9 +306,11 @@ public partial class DatenWindow : UserControl
             _timeLogs.Remove(log);
             _timeLogsView.Refresh();
             UpdateResultsCount();
+            AppLogger.Information("timelog.deleted", "Deleted a time entry.");
         }
         catch (Exception ex)
         {
+            AppLogger.Error("timelog.delete_failed", "Could not delete a time entry.", ex);
             ShowError("Eintrag nicht gelöscht", ex.Message);
         }
     }
@@ -377,6 +402,8 @@ public partial class DatenWindow : UserControl
                 }
                 catch (Exception ex)
                 {
+                    AppLogger.Error("export.billing_mark_failed",
+                        "The export succeeded, but exported entries could not be marked as billed.", ex);
                     ShowError("Export erstellt, Abrechnung nicht gespeichert",
                         $"Der Export wurde erstellt, aber die Einträge konnten nicht als abgerechnet markiert werden.\n{ex.Message}");
                     return;
@@ -389,10 +416,13 @@ public partial class DatenWindow : UserControl
                 completionMessage += "\nAlle exportierten Einträge wurden als abgerechnet markiert.";
             }
 
+            AppLogger.Information("export.completed",
+                $"Exported {filteredLogs.Count} time entry/entries as {(isXlsx ? "XLSX" : "PDF")}.");
             ShowError("Export abgeschlossen", completionMessage, isError: false);
         }
         catch (Exception ex)
         {
+            AppLogger.Error("export.failed", "Could not export time entries.", ex);
             ShowError(exportCreated ? "Export erstellt, aber Aktualisierung fehlgeschlagen" : "Export fehlgeschlagen",
                 ex.Message);
         }
@@ -754,6 +784,7 @@ public partial class DatenWindow : UserControl
                 }
 
                 _dbHelper.SaveCustomer(customerEditor.Customer);
+                AppLogger.Information("customers.created", "Created a customer during manual time entry.");
             }
 
             if (editor.EndTime is not DateTime endTime)
@@ -763,9 +794,11 @@ public partial class DatenWindow : UserControl
 
             _dbHelper.AddManualTimeLog(editor.ClientNumber, editor.StartTime, endTime, editor.Notes);
             LoadAllTimeLogs();
+            AppLogger.Information("timelog.created_manually", "Created a time entry manually.");
         }
         catch (Exception ex)
         {
+            AppLogger.Error("timelog.manual_create_failed", "Could not create a time entry manually.", ex);
             ShowError("Eintrag nicht hinzugefügt", ex.Message);
         }
     }
