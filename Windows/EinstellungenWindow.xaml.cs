@@ -193,15 +193,11 @@ public partial class EinstellungenWindow : UserControl
             }
 
             Directory.CreateDirectory(directory);
-            using Process? process = Process.Start(new ProcessStartInfo
+            Process.Start(new ProcessStartInfo
             {
                 FileName = directory,
                 UseShellExecute = true
             });
-            if (process is null)
-            {
-                throw new InvalidOperationException("Der Protokollordner konnte nicht geöffnet werden.");
-            }
 
             AppLogger.Information("settings.log_folder_opened", "Opened the application log folder.");
         }
