@@ -112,6 +112,43 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+        <Style x:Key="FilterResetButton" TargetType="Button">
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="Padding" Value="13,0"/>
+            <Setter Property="Background" Value="#D5E5F1"/>
+            <Setter Property="Foreground" Value="{StaticResource NavyBrush}"/>
+            <Setter Property="BorderBrush" Value="#AFC6D8"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#C6DBE9"/>
+                                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="#8FAEC5"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#B5CCDD"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.55"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style TargetType="{x:Type DatePickerTextBox}">
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Padding" Value="0"/>
@@ -206,8 +243,7 @@
                         <TextBlock Text="Kunde" Style="{StaticResource FilterLabel}"/>
                         <TextBox x:Name="CustomerFilterTextBox" Style="{StaticResource FilterTextBox}"
                                  ToolTip="Exakte Kundennummern, mehrere mit Komma trennen"
-                                 TextChanged="CustomerFilterTextBox_TextChanged"
-                                 KeyDown="FilterTextBox_KeyDown"/>
+                                 TextChanged="CustomerFilterTextBox_TextChanged"/>
                     </StackPanel>
                     <StackPanel Grid.Column="2">
                         <TextBlock Text="Zeitraum von" Style="{StaticResource FilterLabel}"/>
@@ -240,22 +276,19 @@
                 <Grid Margin="0,13,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="10"/>
-                        <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <Button x:Name="ApplyFiltersButton" Grid.Column="0" Content="Filtern"
-                            Width="88" Height="38"
-                            Background="#D5E5F1" Foreground="{StaticResource NavyBrush}"
-                            BorderThickness="0" FontSize="13" FontWeight="SemiBold"
-                            Click="ApplyFiltersButton_Click"/>
-                    <Button x:Name="ClearFiltersButton" Grid.Column="2" Content="Zurücksetzen"
-                            Width="112" Height="38"
-                            Background="Transparent" Foreground="#344054"
-                            BorderBrush="Transparent" BorderThickness="0"
-                            FontSize="13" Click="ClearFiltersButton_Click"/>
-                    <TextBlock x:Name="ResultsSummaryTextBlock" Grid.Column="4"
+                    <Button x:Name="ClearFiltersButton" Grid.Column="0"
+                            Style="{StaticResource FilterResetButton}"
+                            Click="ClearFiltersButton_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="13" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Filter zurücksetzen" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <TextBlock x:Name="ResultsSummaryTextBlock" Grid.Column="2"
                                Text="0 Einträge  |  Gesamtzeit: 0 h 00 m (0,00 h)  |  Offen: 0 h 00 m"
                                VerticalAlignment="Center" HorizontalAlignment="Right"
                                Foreground="#344054" FontSize="13"/>
