@@ -830,6 +830,11 @@ public class DatabaseHelper
 
     public void MarkTimeLogsBilled(IEnumerable<int> timeLogIds)
     {
+        UpdateTimeLogsBilled(timeLogIds, true);
+    }
+
+    public void UpdateTimeLogsBilled(IEnumerable<int> timeLogIds, bool isBilled)
+    {
         ArgumentNullException.ThrowIfNull(timeLogIds);
         int[] ids = timeLogIds.Distinct().ToArray();
         if (ids.Length == 0)
@@ -841,9 +846,10 @@ public class DatabaseHelper
         connection.Open();
         using SqliteTransaction transaction = connection.BeginTransaction();
         using var command = new SqliteCommand(
-            "UPDATE TimeLogs SET IsBilled = 1 WHERE Id = @id",
+            "UPDATE TimeLogs SET IsBilled = @isBilled WHERE Id = @id",
             connection,
             transaction);
+        command.Parameters.AddWithValue("@isBilled", isBilled ? 1 : 0);
         SqliteParameter idParameter = command.Parameters.Add("@id", SqliteType.Integer);
 
         foreach (int id in ids)
@@ -907,6 +913,36 @@ public class DatabaseHelper
         {
             throw new InvalidOperationException("Der Eintrag wurde nicht gefunden oder die Zeiterfassung läuft noch.");
         }
+    }
+
+    public void DeleteTimeLogs(IReadOnlyCollection<int> timeLogIds)
+    {
+        int[] distinctIds = timeLogIds.Distinct().ToArray();
+        if (distinctIds.Length == 0)
+        {
+            throw new ArgumentException("Es wurden keine Zeiteinträge zum Löschen ausgewählt.", nameof(timeLogIds));
+        }
+
+        using var connection = new SqliteConnection(_connectionString);
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+        using var command = new SqliteCommand(
+            "DELETE FROM TimeLogs WHERE Id = @id AND EndTime IS NOT NULL",
+            connection,
+            transaction);
+        var idParameter = command.Parameters.Add("@id", SqliteType.Integer);
+
+        foreach (int id in distinctIds)
+        {
+            idParameter.Value = id;
+            if (command.ExecuteNonQuery() != 1)
+            {
+                throw new InvalidOperationException(
+                    "Mindestens ein ausgewählter Zeiteintrag wurde nicht gefunden oder die Zeiterfassung läuft noch. Es wurden keine Einträge gelöscht.");
+            }
+        }
+
+        transaction.Commit();
     }
 
     // Method to retrieve all time logs for a specific client
