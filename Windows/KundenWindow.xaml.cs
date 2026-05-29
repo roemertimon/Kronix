@@ -94,11 +94,22 @@ public partial class KundenWindow : UserControl
         }
     }
 
-    private void CustomersDataGrid_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    private void CustomersDataGrid_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (!CustomersDataGrid.IsKeyboardFocusWithin)
+        if (CustomersDataGrid.SelectedItem is not DatabaseHelper.Customer customer)
         {
-            CustomersDataGrid.SelectedItem = null;
+            return;
+        }
+
+        if (e.Key == Key.Delete)
+        {
+            e.Handled = true;
+            DeleteCustomer(customer);
+        }
+        else if (e.Key == Key.E && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            e.Handled = true;
+            ShowCustomerEditor(customer);
         }
     }
 
@@ -109,6 +120,11 @@ public partial class KundenWindow : UserControl
             return;
         }
 
+        DeleteCustomer(customer);
+    }
+
+    private void DeleteCustomer(DatabaseHelper.Customer customer)
+    {
         try
         {
             int timeLogCount = _dbHelper.GetTimeLogCountForCustomer(customer.ClientNumber);
@@ -128,12 +144,11 @@ public partial class KundenWindow : UserControl
                 return;
             }
 
-            MessageBoxResult result = MessageBox.Show(
-                $"Für den Kunden {customer.ClientNumber} sind keine Zeiteinträge vorhanden. Kunden können nur gelöscht werden, wenn alle zugehörigen Zeiteinträge zuvor entfernt wurden.\n\nMöchten Sie diesen Kunden jetzt löschen?",
-                "Kunden löschen",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning);
-            if (result != MessageBoxResult.Yes)
+            var confirmation = new DeleteConfirmationWindow(customer.ClientNumber)
+            {
+                Owner = Window.GetWindow(this)
+            };
+            if (confirmation.ShowDialog() != true)
             {
                 return;
             }
