@@ -1,20 +1,20 @@
 # Kronix
 
-**Kronix** is a Windows desktop application for tracking working time and managing customer records. It combines a customer directory, a timer, searchable time-entry history, billing status, and Excel/PDF exports in one WPF app.
+**Kronix** is a Windows desktop application for tracking work hours and managing customer records. It includes a customer directory, a timer, searchable time entries, billing status, and Excel and PDF exports.
 
 > The application interface is currently in German.
 
 ## Features
 
-- **Track time by customer** — start, pause, resume, and stop a timer; add notes to an entry.
-- **Manage customers** — store customer numbers, names, company names, addresses, and phone numbers.
-- **Review and edit time entries** — add entries manually, edit dates and times separately, and round times to five-minute increments.
-- **Filter and summarize** — filter entries by customer number, date range, and billing status; review entry counts and duration totals.
-- **Manage billing status** — mark entries individually or update a multi-selection together.
-- **Export selected results** — create Excel workbooks (`.xlsx`) or PDF reports with optional customer separation and billing summaries.
-- **Back up and restore data** — create ZIP archives of the active SQLite database and restore them to a new database file.
-- **Keep an activity log** — inspect application events and errors from Settings.
-- **Run from the notification area** — minimize the dashboard to the Windows notification area and reopen it from the Kronix icon.
+- Track time for a customer, pause and resume the timer, and add notes to entries.
+- Keep customer contact details in one searchable directory.
+- Add or edit time entries manually, with separate date and time fields.
+- Filter entries by customer, date, and billing status, then review duration totals.
+- Update billing status for one entry or a group of selected entries.
+- Export filtered entries to Excel or PDF, with optional customer separation and billing summaries.
+- Back up the SQLite database to a ZIP archive and restore a backup to a new file.
+- Review application events and errors in the built-in log viewer.
+- Keep Kronix available from the Windows notification area.
 
 ## Getting started
 
@@ -135,4 +135,7 @@ Kronix/
 
 ## License
 
-No `LICENSE` file is currently included in this repository. Please contact the repository owner for permission and licensing terms before redistributing or reusing the project.
+Kronix is licensed under the Zero-Clause BSD License (0BSD). You may use, copy, modify, and distribute the project without asking for permission or providing attribution. The copyright remains with the author; credit is welcome but not required. See [LICENSE](LICENSE) for the full terms.
+
+Third-party libraries retain their own licenses. The 0BSD license does not replace the terms that apply to those dependencies.
+The license does not grant rights to use Kronix branding or logos.
