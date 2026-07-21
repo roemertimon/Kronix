@@ -11,9 +11,10 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="ClosedXML" Version="0.104.2" />
-      <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.10" />
-      <PackageReference Include="PDFsharp-WPF" Version="6.2.0" />
+      <PackageReference Include="ClosedXML" Version="0.105.1" />
+      <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.13" />
+      <PackageReference Include="PDFsharp-WPF" Version="6.5.0" />
+      <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
       <PackageReference Include="WpfAnimatedGif" Version="2.0.2" />
     </ItemGroup>
 
@@ -47,7 +48,7 @@
       </Resource>
     </ItemGroup>
 
-    <ItemGroup>
+    <ItemGroup Condition="'$(Configuration)' == 'Debug'">
         <Content Include="Resources\kundenDaten.sqlite">
             <Link>Resources\kundenDaten.sqlite</Link>
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
