@@ -1,5 +1,6 @@
 using System;
 using System.Windows;
+using PdfSharp;
 using Kronix.Logging;
 using Kronix.Database;
 
@@ -15,6 +16,7 @@ namespace Kronix
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            PdfSharpLicense.SetAgplLicense();
             DispatcherUnhandledException += (_, args) =>
                 AppLogger.Error("application.dispatcher_exception",
                     "An unhandled exception occurred on the UI dispatcher.", args.Exception);

@@ -196,6 +196,7 @@ public partial class DashboardWindow : Window
         
         ZeiterfassungBtn.IsEnabled = false;
         KundenBtn.IsEnabled = true;
+        MitarbeiterBtn.IsEnabled = true;
         DatenBtn.IsEnabled = true;
         EinstellungenBtn.IsEnabled = true;
     }
@@ -207,6 +208,19 @@ public partial class DashboardWindow : Window
         
         ZeiterfassungBtn.IsEnabled = true;
         KundenBtn.IsEnabled = false;
+        MitarbeiterBtn.IsEnabled = true;
+        DatenBtn.IsEnabled = true;
+        EinstellungenBtn.IsEnabled = true;
+    }
+
+    private void MitarbeiterButton_Click(object sender, RoutedEventArgs e)
+    {
+        AppLogger.Information("navigation.employees", "Opened the employees tab.");
+        MainContentControl.Content = new MitarbeiterWindow(_dbHelper);
+
+        ZeiterfassungBtn.IsEnabled = true;
+        KundenBtn.IsEnabled = true;
+        MitarbeiterBtn.IsEnabled = false;
         DatenBtn.IsEnabled = true;
         EinstellungenBtn.IsEnabled = true;
     }
@@ -218,6 +232,7 @@ public partial class DashboardWindow : Window
         
         ZeiterfassungBtn.IsEnabled = true;
         KundenBtn.IsEnabled = true;
+        MitarbeiterBtn.IsEnabled = true;
         DatenBtn.IsEnabled = false;
         EinstellungenBtn.IsEnabled = true;
     }
@@ -229,6 +244,7 @@ public partial class DashboardWindow : Window
 
         ZeiterfassungBtn.IsEnabled = true;
         KundenBtn.IsEnabled = true;
+        MitarbeiterBtn.IsEnabled = true;
         DatenBtn.IsEnabled = true;
         EinstellungenBtn.IsEnabled = false;
     }

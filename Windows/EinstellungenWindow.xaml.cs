@@ -63,6 +63,34 @@ public partial class EinstellungenWindow : UserControl
             "Datenbank gewechselt. Die bisherige Datenbankdatei bleibt unverändert erhalten.");
     }
 
+    private void OpenDatabaseInExplorerButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            string databasePath = _dbHelper.DatabasePath;
+            if (!File.Exists(databasePath))
+            {
+                throw new FileNotFoundException("Die aktive Datenbankdatei wurde nicht gefunden.", databasePath);
+            }
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = $"/select,\"{databasePath}\"",
+                UseShellExecute = true
+            });
+
+            AppLogger.Information("settings.database_file_opened",
+                "Displayed the active database file in Windows Explorer.");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("settings.database_file_open_failed",
+                "Could not display the active database file in Windows Explorer.", ex);
+            ShowMessage("Datenbankdatei konnte nicht angezeigt werden", ex.Message);
+        }
+    }
+
     private void CreateDatabaseButton_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new SaveFileDialog

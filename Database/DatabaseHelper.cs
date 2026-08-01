@@ -21,8 +21,18 @@ public class DatabaseHelper
         public string PostalCode { get; set; } = string.Empty;
         public string City { get; set; } = string.Empty;
         public string PhoneNumber { get; set; } = string.Empty;
+        public decimal? HourlyRate { get; set; }
 
         public string DisplayName => $"{FirstName} {LastName}".Trim();
+    }
+
+    public class Employee
+    {
+        public string EmployeeNumber { get; set; } = string.Empty;
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string DisplayName => $"{FirstName} {LastName}".Trim();
+        public string DisplayLabel => $"{EmployeeNumber} · {DisplayName}";
     }
 
     // Model class for time log entries
@@ -30,6 +40,7 @@ public class DatabaseHelper
     {
         public int Id { get; set; }
         public string? ClientNumber { get; set; }
+        public string? EmployeeNumber { get; set; }
         public DateTime? StartTime { get; set; }  
         public DateTime? EndTime { get; set; }
         public bool IsBilled { get; set; }
@@ -217,9 +228,48 @@ public class DatabaseHelper
                 Street TEXT NOT NULL DEFAULT '',
                 PostalCode TEXT NOT NULL DEFAULT '',
                 City TEXT NOT NULL DEFAULT '',
-                PhoneNumber TEXT NOT NULL DEFAULT ''
+                PhoneNumber TEXT NOT NULL DEFAULT '',
+                HourlyRate REAL
             )";
         using (var command = new SqliteCommand(createCustomersQuery, connection))
+        {
+            command.ExecuteNonQuery();
+        }
+
+        bool hasCustomerHourlyRate = false;
+        using (var command = new SqliteCommand("PRAGMA table_info(Customers)", connection))
+        using (var reader = command.ExecuteReader())
+        {
+            while (reader.Read())
+            {
+                if (string.Equals(reader.GetString(1), "HourlyRate", StringComparison.OrdinalIgnoreCase))
+                {
+                    hasCustomerHourlyRate = true;
+                    break;
+                }
+            }
+        }
+
+        if (!hasCustomerHourlyRate)
+        {
+            using var migration = new SqliteCommand("ALTER TABLE Customers ADD COLUMN HourlyRate REAL", connection);
+            migration.ExecuteNonQuery();
+        }
+
+        const string createEmployeesQuery = @"
+            CREATE TABLE IF NOT EXISTS Employees (
+                EmployeeNumber TEXT PRIMARY KEY COLLATE NOCASE NOT NULL,
+                FirstName TEXT NOT NULL DEFAULT '',
+                LastName TEXT NOT NULL DEFAULT ''
+            )";
+        using (var command = new SqliteCommand(createEmployeesQuery, connection))
+        {
+            command.ExecuteNonQuery();
+        }
+
+        using (var command = new SqliteCommand(
+                   "CREATE TABLE IF NOT EXISTS AppSettings (SettingKey TEXT PRIMARY KEY NOT NULL, SettingValue TEXT NOT NULL)",
+                   connection))
         {
             command.ExecuteNonQuery();
         }
@@ -233,6 +283,7 @@ public class DatabaseHelper
 
         bool hasBilledColumn = false;
         bool hasNotesColumn = false;
+        bool hasEmployeeNumberColumn = false;
         using (var command = new SqliteCommand("PRAGMA table_info(TimeLogs)", connection))
         using (var reader = command.ExecuteReader())
         {
@@ -245,6 +296,10 @@ public class DatabaseHelper
                 else if (string.Equals(reader.GetString(1), "Notes", StringComparison.OrdinalIgnoreCase))
                 {
                     hasNotesColumn = true;
+                }
+                else if (string.Equals(reader.GetString(1), "EmployeeNumber", StringComparison.OrdinalIgnoreCase))
+                {
+                    hasEmployeeNumberColumn = true;
                 }
             }
         }
@@ -265,6 +320,14 @@ public class DatabaseHelper
             migration.ExecuteNonQuery();
         }
 
+        if (!hasEmployeeNumberColumn)
+        {
+            using var migration = new SqliteCommand(
+                "ALTER TABLE TimeLogs ADD COLUMN EmployeeNumber TEXT",
+                connection);
+            migration.ExecuteNonQuery();
+        }
+
         AppLogger.Information("database.schema_ready", "Database schema check completed.");
     }
     
@@ -280,7 +343,7 @@ public class DatabaseHelper
         using var connection = new SqliteConnection(_connectionString);
         connection.Open();
         using var command = new SqliteCommand(
-            "SELECT ClientNumber, FirstName, LastName, Company, Street, PostalCode, City, PhoneNumber FROM Customers ORDER BY ClientNumber COLLATE NOCASE",
+            "SELECT ClientNumber, FirstName, LastName, Company, Street, PostalCode, City, PhoneNumber, HourlyRate FROM Customers ORDER BY ClientNumber COLLATE NOCASE",
             connection);
         using var reader = command.ExecuteReader();
         var customers = new List<Customer>();
@@ -297,7 +360,7 @@ public class DatabaseHelper
         using var connection = new SqliteConnection(_connectionString);
         connection.Open();
         using var command = new SqliteCommand(
-            "SELECT ClientNumber, FirstName, LastName, Company, Street, PostalCode, City, PhoneNumber FROM Customers WHERE ClientNumber = @number COLLATE NOCASE",
+            "SELECT ClientNumber, FirstName, LastName, Company, Street, PostalCode, City, PhoneNumber, HourlyRate FROM Customers WHERE ClientNumber = @number COLLATE NOCASE",
             connection);
         command.Parameters.AddWithValue("@number", clientNumber.Trim());
         using var reader = command.ExecuteReader();
@@ -359,7 +422,8 @@ public class DatabaseHelper
             using var transaction = connection.BeginTransaction();
             using var updateCustomer = new SqliteCommand(
                 @"UPDATE Customers SET ClientNumber = @number, FirstName = @firstName, LastName = @lastName,
-                    Company = @company, Street = @street, PostalCode = @postalCode, City = @city, PhoneNumber = @phone
+                    Company = @company, Street = @street, PostalCode = @postalCode, City = @city, PhoneNumber = @phone,
+                    HourlyRate = @hourlyRate
                   WHERE ClientNumber = @original",
                 connection, transaction);
             AddCustomerParameters(updateCustomer, customer);
@@ -380,8 +444,8 @@ public class DatabaseHelper
         }
 
         using var command = new SqliteCommand(
-            @"INSERT INTO Customers (ClientNumber, FirstName, LastName, Company, Street, PostalCode, City, PhoneNumber)
-              VALUES (@number, @firstName, @lastName, @company, @street, @postalCode, @city, @phone)",
+            @"INSERT INTO Customers (ClientNumber, FirstName, LastName, Company, Street, PostalCode, City, PhoneNumber, HourlyRate)
+              VALUES (@number, @firstName, @lastName, @company, @street, @postalCode, @city, @phone, @hourlyRate)",
             connection);
         AddCustomerParameters(command, customer);
         command.ExecuteNonQuery();
@@ -609,7 +673,7 @@ public class DatabaseHelper
         using var connection = new SqliteConnection(_connectionString);
         connection.Open();
         using var command = new SqliteCommand(
-            "SELECT Id, ClientNumber, StartTime, EndTime, IsBilled, Notes FROM TimeLogs WHERE EndTime IS NULL ORDER BY StartTime DESC LIMIT 1",
+            "SELECT Id, ClientNumber, StartTime, EndTime, IsBilled, Notes, EmployeeNumber FROM TimeLogs WHERE EndTime IS NULL ORDER BY StartTime DESC LIMIT 1",
             connection);
         using var reader = command.ExecuteReader();
 
@@ -617,16 +681,18 @@ public class DatabaseHelper
     }
 
     // Method to start a time log entry (only adds start time)
-    public int StartTimeLog(string clientNumber, DateTime startTime, string? notes = null)
+    public int StartTimeLog(string clientNumber, DateTime startTime, string? notes = null, string? employeeNumber = null)
     {
         startTime = TruncateToMinute(startTime);
         using var connection = new SqliteConnection(_connectionString);
         connection.Open();
-        const string insertQuery = "INSERT INTO TimeLogs (ClientNumber, StartTime, EndTime, Notes) VALUES (@clientNumber, @startTime, NULL, @notes)";
+        employeeNumber = RequireEmployeeNumber(connection, employeeNumber);
+        const string insertQuery = "INSERT INTO TimeLogs (ClientNumber, StartTime, EndTime, Notes, EmployeeNumber) VALUES (@clientNumber, @startTime, NULL, @notes, @employeeNumber)";
         using SqliteCommand command = new SqliteCommand(insertQuery, connection);
         command.Parameters.AddWithValue("@clientNumber", clientNumber);
         command.Parameters.AddWithValue("@startTime", startTime.ToString("yyyy-MM-dd HH:mm:ss"));
         command.Parameters.AddWithValue("@notes", (object?)notes ?? DBNull.Value);
+        command.Parameters.AddWithValue("@employeeNumber", employeeNumber);
         command.ExecuteNonQuery();
         using var idCommand = new SqliteCommand("SELECT last_insert_rowid()", connection);
         int timeLogId = Convert.ToInt32(idCommand.ExecuteScalar());
@@ -635,7 +701,8 @@ public class DatabaseHelper
         return timeLogId;
     }
 
-    public int AddManualTimeLog(string clientNumber, DateTime startTime, DateTime endTime, string? notes)
+    public int AddManualTimeLog(string clientNumber, DateTime startTime, DateTime endTime, string? notes,
+        string? employeeNumber = null)
     {
         if (string.IsNullOrWhiteSpace(clientNumber))
         {
@@ -656,14 +723,16 @@ public class DatabaseHelper
         endTime = RoundEndTime(startTime, endTime);
         using var connection = new SqliteConnection(_connectionString);
         connection.Open();
+        employeeNumber = RequireEmployeeNumber(connection, employeeNumber);
         using var command = new SqliteCommand(
-            @"INSERT INTO TimeLogs (ClientNumber, StartTime, EndTime, Notes)
-              VALUES (@clientNumber, @startTime, @endTime, @notes)",
+            @"INSERT INTO TimeLogs (ClientNumber, StartTime, EndTime, Notes, EmployeeNumber)
+              VALUES (@clientNumber, @startTime, @endTime, @notes, @employeeNumber)",
             connection);
         command.Parameters.AddWithValue("@clientNumber", clientNumber.Trim());
         command.Parameters.AddWithValue("@startTime", startTime.ToString("yyyy-MM-dd HH:mm:ss"));
         command.Parameters.AddWithValue("@endTime", endTime.ToString("yyyy-MM-dd HH:mm:ss"));
         command.Parameters.AddWithValue("@notes", (object?)notes ?? DBNull.Value);
+        command.Parameters.AddWithValue("@employeeNumber", employeeNumber);
         command.ExecuteNonQuery();
         using var idCommand = new SqliteCommand("SELECT last_insert_rowid()", connection);
         return Convert.ToInt32(idCommand.ExecuteScalar());
@@ -952,7 +1021,7 @@ public class DatabaseHelper
 
         using var connection = new SqliteConnection(_connectionString);
         connection.Open();
-        const string selectQuery = "SELECT Id, ClientNumber, StartTime, EndTime, IsBilled, Notes FROM TimeLogs WHERE ClientNumber = @clientNumber";
+        const string selectQuery = "SELECT Id, ClientNumber, StartTime, EndTime, IsBilled, Notes, EmployeeNumber FROM TimeLogs WHERE ClientNumber = @clientNumber";
         using SqliteCommand command = new SqliteCommand(selectQuery, connection);
         command.Parameters.AddWithValue("@clientNumber", clientNumber);
         using SqliteDataReader reader = command.ExecuteReader();
@@ -972,7 +1041,7 @@ public class DatabaseHelper
 
         using var connection = new SqliteConnection(_connectionString);
         connection.Open();
-        const string selectQuery = "SELECT Id, ClientNumber, StartTime, EndTime, IsBilled, Notes FROM TimeLogs ORDER BY StartTime DESC";
+        const string selectQuery = "SELECT Id, ClientNumber, StartTime, EndTime, IsBilled, Notes, EmployeeNumber FROM TimeLogs ORDER BY StartTime DESC";
         using SqliteCommand command = new SqliteCommand(selectQuery, connection);
         using SqliteDataReader reader = command.ExecuteReader();
 
@@ -997,8 +1066,31 @@ public class DatabaseHelper
                 ? null
                 : DateTime.Parse(reader.GetString(3), CultureInfo.InvariantCulture),
             IsBilled = reader.GetInt32(4) != 0,
-            Notes = reader.IsDBNull(5) ? null : reader.GetString(5)
+            Notes = reader.IsDBNull(5) ? null : reader.GetString(5),
+            EmployeeNumber = reader.IsDBNull(6) ? null : reader.GetString(6)
         };
+    }
+
+    private static string RequireEmployeeNumber(SqliteConnection connection, string? employeeNumber)
+    {
+        if (string.IsNullOrWhiteSpace(employeeNumber))
+        {
+            throw new InvalidOperationException(
+                "Bitte legen Sie im Mitarbeiter-Tab einen aktuellen Mitarbeiter fest, bevor Sie Zeiteinträge erfassen.");
+        }
+
+        string normalizedNumber = employeeNumber.Trim();
+        using var command = new SqliteCommand(
+            "SELECT EXISTS(SELECT 1 FROM Employees WHERE EmployeeNumber = @number COLLATE NOCASE)",
+            connection);
+        command.Parameters.AddWithValue("@number", normalizedNumber);
+        if (Convert.ToInt32(command.ExecuteScalar()) == 0)
+        {
+            throw new InvalidOperationException(
+                "Der aktuelle Mitarbeiter wurde nicht gefunden. Bitte wählen Sie ihn im Mitarbeiter-Tab erneut aus.");
+        }
+
+        return normalizedNumber;
     }
 
     private static Customer ReadCustomer(SqliteDataReader reader)
@@ -1012,8 +1104,205 @@ public class DatabaseHelper
             Street = reader.GetString(4),
             PostalCode = reader.GetString(5),
             City = reader.GetString(6),
-            PhoneNumber = reader.GetString(7)
+            PhoneNumber = reader.GetString(7),
+            HourlyRate = reader.IsDBNull(8) ? null : reader.GetDecimal(8)
         };
+    }
+
+    public List<Employee> GetAllEmployees()
+    {
+        var employees = new List<Employee>();
+        using var connection = new SqliteConnection(_connectionString);
+        connection.Open();
+        using var command = new SqliteCommand(
+            "SELECT EmployeeNumber, FirstName, LastName FROM Employees ORDER BY EmployeeNumber COLLATE NOCASE",
+            connection);
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            employees.Add(new Employee
+            {
+                EmployeeNumber = reader.GetString(0),
+                FirstName = reader.GetString(1),
+                LastName = reader.GetString(2)
+            });
+        }
+
+        return employees;
+    }
+
+    public Employee? GetEmployee(string employeeNumber)
+    {
+        using var connection = new SqliteConnection(_connectionString);
+        connection.Open();
+        using var command = new SqliteCommand(
+            "SELECT EmployeeNumber, FirstName, LastName FROM Employees WHERE EmployeeNumber = @number COLLATE NOCASE",
+            connection);
+        command.Parameters.AddWithValue("@number", employeeNumber.Trim());
+        using SqliteDataReader reader = command.ExecuteReader();
+        return reader.Read()
+            ? new Employee
+            {
+                EmployeeNumber = reader.GetString(0),
+                FirstName = reader.GetString(1),
+                LastName = reader.GetString(2)
+            }
+            : null;
+    }
+
+    public string? GetCurrentEmployeeNumber()
+    {
+        using var connection = new SqliteConnection(_connectionString);
+        connection.Open();
+        using var command = new SqliteCommand(
+            "SELECT SettingValue FROM AppSettings WHERE SettingKey = 'CurrentEmployeeNumber'",
+            connection);
+        return command.ExecuteScalar() as string;
+    }
+
+    public void SetCurrentEmployeeNumber(string? employeeNumber)
+    {
+        using var connection = new SqliteConnection(_connectionString);
+        connection.Open();
+        if (string.IsNullOrWhiteSpace(employeeNumber))
+        {
+            using var clearCommand = new SqliteCommand(
+                "DELETE FROM AppSettings WHERE SettingKey = 'CurrentEmployeeNumber'",
+                connection);
+            clearCommand.ExecuteNonQuery();
+            return;
+        }
+
+        string normalizedNumber = employeeNumber.Trim();
+        using var existsCommand = new SqliteCommand(
+            "SELECT EXISTS(SELECT 1 FROM Employees WHERE EmployeeNumber = @number COLLATE NOCASE)",
+            connection);
+        existsCommand.Parameters.AddWithValue("@number", normalizedNumber);
+        if (Convert.ToInt32(existsCommand.ExecuteScalar()) == 0)
+        {
+            throw new InvalidOperationException("Der ausgewählte Mitarbeiter wurde nicht gefunden.");
+        }
+
+        using var command = new SqliteCommand(
+            "INSERT INTO AppSettings (SettingKey, SettingValue) VALUES ('CurrentEmployeeNumber', @number) " +
+            "ON CONFLICT(SettingKey) DO UPDATE SET SettingValue = excluded.SettingValue",
+            connection);
+        command.Parameters.AddWithValue("@number", normalizedNumber);
+        command.ExecuteNonQuery();
+    }
+
+    public int GetTimeLogCountForEmployee(string employeeNumber)
+    {
+        using var connection = new SqliteConnection(_connectionString);
+        connection.Open();
+        using var command = new SqliteCommand(
+            "SELECT COUNT(*) FROM TimeLogs WHERE EmployeeNumber = @number COLLATE NOCASE",
+            connection);
+        command.Parameters.AddWithValue("@number", employeeNumber.Trim());
+        return Convert.ToInt32(command.ExecuteScalar());
+    }
+
+    public void SaveEmployee(Employee employee, string? originalEmployeeNumber = null, bool makeCurrent = false)
+    {
+        if (string.IsNullOrWhiteSpace(employee.EmployeeNumber))
+        {
+            throw new ArgumentException("Die Mitarbeiternummer darf nicht leer sein.", nameof(employee));
+        }
+
+        string number = employee.EmployeeNumber.Trim();
+        using var connection = new SqliteConnection(_connectionString);
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+
+        if (!string.IsNullOrWhiteSpace(originalEmployeeNumber))
+        {
+            using var updateEmployee = new SqliteCommand(
+                @"UPDATE Employees SET EmployeeNumber = @number, FirstName = @firstName, LastName = @lastName
+                  WHERE EmployeeNumber = @original COLLATE NOCASE",
+                connection, transaction);
+            AddEmployeeParameters(updateEmployee, employee, number);
+            updateEmployee.Parameters.AddWithValue("@original", originalEmployeeNumber.Trim());
+            if (updateEmployee.ExecuteNonQuery() != 1)
+            {
+                throw new InvalidOperationException("Der Mitarbeiter wurde nicht gefunden.");
+            }
+
+            using var updateLogs = new SqliteCommand(
+                "UPDATE TimeLogs SET EmployeeNumber = @number WHERE EmployeeNumber = @original COLLATE NOCASE",
+                connection, transaction);
+            updateLogs.Parameters.AddWithValue("@number", number);
+            updateLogs.Parameters.AddWithValue("@original", originalEmployeeNumber.Trim());
+            updateLogs.ExecuteNonQuery();
+
+            using var updateCurrent = new SqliteCommand(
+                "UPDATE AppSettings SET SettingValue = @number WHERE SettingKey = 'CurrentEmployeeNumber' AND SettingValue = @original COLLATE NOCASE",
+                connection, transaction);
+            updateCurrent.Parameters.AddWithValue("@number", number);
+            updateCurrent.Parameters.AddWithValue("@original", originalEmployeeNumber.Trim());
+            updateCurrent.ExecuteNonQuery();
+        }
+        else
+        {
+            using var insertEmployee = new SqliteCommand(
+                "INSERT INTO Employees (EmployeeNumber, FirstName, LastName) VALUES (@number, @firstName, @lastName)",
+                connection, transaction);
+            AddEmployeeParameters(insertEmployee, employee, number);
+            insertEmployee.ExecuteNonQuery();
+        }
+
+        if (makeCurrent)
+        {
+            using var setCurrent = new SqliteCommand(
+                "INSERT INTO AppSettings (SettingKey, SettingValue) VALUES ('CurrentEmployeeNumber', @number) " +
+                "ON CONFLICT(SettingKey) DO UPDATE SET SettingValue = excluded.SettingValue",
+                connection, transaction);
+            setCurrent.Parameters.AddWithValue("@number", number);
+            setCurrent.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+    }
+
+    public void DeleteEmployee(string employeeNumber)
+    {
+        using var connection = new SqliteConnection(_connectionString);
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+
+        using var countCommand = new SqliteCommand(
+            "SELECT COUNT(*) FROM TimeLogs WHERE EmployeeNumber = @number COLLATE NOCASE",
+            connection, transaction);
+        countCommand.Parameters.AddWithValue("@number", employeeNumber.Trim());
+        int timeLogCount = Convert.ToInt32(countCommand.ExecuteScalar());
+        if (timeLogCount > 0)
+        {
+            string entryLabel = timeLogCount == 1 ? "Zeiteintrag" : "Zeiteinträge";
+            throw new InvalidOperationException(
+                $"Der Mitarbeiter kann nicht gelöscht werden, da ihm {timeLogCount} {entryLabel} zugeordnet sind.");
+        }
+
+        using var deleteCommand = new SqliteCommand(
+            "DELETE FROM Employees WHERE EmployeeNumber = @number COLLATE NOCASE",
+            connection, transaction);
+        deleteCommand.Parameters.AddWithValue("@number", employeeNumber.Trim());
+        if (deleteCommand.ExecuteNonQuery() != 1)
+        {
+            throw new InvalidOperationException("Der Mitarbeiter wurde nicht gefunden.");
+        }
+
+        using var clearCurrent = new SqliteCommand(
+            "DELETE FROM AppSettings WHERE SettingKey = 'CurrentEmployeeNumber' AND SettingValue = @number COLLATE NOCASE",
+            connection, transaction);
+        clearCurrent.Parameters.AddWithValue("@number", employeeNumber.Trim());
+        clearCurrent.ExecuteNonQuery();
+        transaction.Commit();
+    }
+
+    private static void AddEmployeeParameters(SqliteCommand command, Employee employee, string employeeNumber)
+    {
+        command.Parameters.AddWithValue("@number", employeeNumber);
+        command.Parameters.AddWithValue("@firstName", employee.FirstName.Trim());
+        command.Parameters.AddWithValue("@lastName", employee.LastName.Trim());
     }
 
     private static void AddCustomerParameters(SqliteCommand command, Customer customer)
@@ -1026,6 +1315,9 @@ public class DatabaseHelper
         command.Parameters.AddWithValue("@postalCode", customer.PostalCode.Trim());
         command.Parameters.AddWithValue("@city", customer.City.Trim());
         command.Parameters.AddWithValue("@phone", customer.PhoneNumber.Trim());
+        command.Parameters.AddWithValue("@hourlyRate", customer.HourlyRate.HasValue
+            ? customer.HourlyRate.Value
+            : DBNull.Value);
     }
 
     private int GetCount(string tableName)

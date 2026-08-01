@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Windows;
 using System.Windows.Input;
 using Kronix.Database;
@@ -35,6 +36,7 @@ public partial class CustomerEditorWindow : Window
         PostalCodeTextBox.Text = customer.PostalCode;
         CityTextBox.Text = customer.City;
         PhoneNumberTextBox.Text = customer.PhoneNumber;
+        HourlyRateTextBox.Text = customer.HourlyRate?.ToString("0.00", CultureInfo.GetCultureInfo("de-DE")) ?? string.Empty;
     }
 
     public string? OriginalClientNumber => _originalClientNumber;
@@ -47,10 +49,22 @@ public partial class CustomerEditorWindow : Window
             ShowValidationError("Bitte geben Sie eine Kundennummer ein.");
             return;
         }
-        if (!int.TryParse(clientNumber, out _))
+
+        decimal? hourlyRate = null;
+        string hourlyRateText = HourlyRateTextBox.Text.Trim();
+        if (hourlyRateText.Length > 0)
         {
-            ShowValidationError("Die Kundennummer muss wie bei der Zeiterfassung eine Zahl sein.");
-            return;
+            bool parsed = decimal.TryParse(hourlyRateText, NumberStyles.Number,
+                CultureInfo.GetCultureInfo("de-DE"), out decimal rate) ||
+                decimal.TryParse(hourlyRateText, NumberStyles.Number,
+                    CultureInfo.InvariantCulture, out rate);
+            if (!parsed || rate < 0)
+            {
+                ShowValidationError("Bitte geben Sie einen gültigen, nicht negativen Stundensatz in Euro ein.");
+                return;
+            }
+
+            hourlyRate = rate;
         }
 
         Customer = new DatabaseHelper.Customer
@@ -62,7 +76,8 @@ public partial class CustomerEditorWindow : Window
             Street = StreetTextBox.Text.Trim(),
             PostalCode = PostalCodeTextBox.Text.Trim(),
             City = CityTextBox.Text.Trim(),
-            PhoneNumber = PhoneNumberTextBox.Text.Trim()
+            PhoneNumber = PhoneNumberTextBox.Text.Trim(),
+            HourlyRate = hourlyRate
         };
         DialogResult = true;
     }

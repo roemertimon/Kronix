@@ -95,13 +95,35 @@ public partial class Zeiterfassung : UserControl
             return;
         }
 
+        string? employeeNumber;
+        try
+        {
+            employeeNumber = _dbHelper.GetCurrentEmployeeNumber();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("timelog.current_employee_read_failed",
+                "Could not read the current employee before starting time tracking.", ex);
+            ShowError("Mitarbeiter konnte nicht geladen werden", ex.Message);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(employeeNumber))
+        {
+            AppLogger.Warning("timelog.start_without_employee",
+                "A time-tracking start was rejected because no current employee was selected.");
+            ShowError("Kein aktueller Mitarbeiter",
+                "Bitte legen Sie im Mitarbeiter-Tab zuerst einen Mitarbeiter an und wählen Sie ihn als aktuell aus.");
+            return;
+        }
+
         string clientNumber = CustomerNumberComboBox.Text.Trim();
 
-        if (!int.TryParse(clientNumber, out _))
+        if (string.IsNullOrWhiteSpace(clientNumber))
         {
             AppLogger.Warning("timelog.start_invalid_customer",
                 "A time-tracking start was rejected because the customer number was invalid.");
-            ShowError("Kundennummer fehlt", "Bitte geben Sie eine gültige Kundennummer ein.");
+            ShowError("Kundennummer fehlt", "Bitte geben Sie eine Kundennummer ein.");
             return;
         }
 
@@ -139,7 +161,8 @@ public partial class Zeiterfassung : UserControl
         int timeLogId;
         try
         {
-            timeLogId = _dbHelper.StartTimeLog(clientNumber, startTime, NotesTextBox.Text);
+            timeLogId = _dbHelper.StartTimeLog(clientNumber, startTime, NotesTextBox.Text,
+                employeeNumber);
         }
         catch (Exception ex)
         {
@@ -357,15 +380,9 @@ public partial class Zeiterfassung : UserControl
         if (CustomerNumberComboBox.Template.FindName("PART_EditableTextBox", CustomerNumberComboBox) is TextBox textBox)
         {
             textBox.TextChanged += CustomerNumberTextBox_TextChanged;
-            textBox.PreviewTextInput += CustomerNumberTextBox_PreviewTextInput;
             textBox.GotFocus += CustomerNumberTextBox_GotFocus;
             textBox.LostFocus += CustomerNumberTextBox_LostFocus;
         }
-    }
-
-    private void CustomerNumberTextBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
-    {
-        e.Handled = !e.Text.All(char.IsDigit);
     }
 
     private void CustomerNumberComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
