@@ -543,6 +543,7 @@ public class DatabaseHelper
         {
             if (createdFile && File.Exists(fullPath))
             {
+                SqliteConnection.ClearAllPools();
                 File.Delete(fullPath);
             }
 
@@ -661,6 +662,7 @@ public class DatabaseHelper
         {
             if (createdFile && File.Exists(fullPath))
             {
+                SqliteConnection.ClearAllPools();
                 File.Delete(fullPath);
             }
 

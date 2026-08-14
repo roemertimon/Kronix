@@ -1,5 +1,9 @@
 # Kronix
 
+[![Windows build](https://github.com/roemertimon/Kronix/actions/workflows/build.yml/badge.svg)](https://github.com/roemertimon/Kronix/actions/workflows/build.yml)
+![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
+![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue)
+
 **Kronix** is a Windows desktop application for tracking work hours and managing customer records. It includes a customer directory, a timer, searchable time entries, billing status, and Excel and PDF exports.
 
 > The application interface is currently in German.
@@ -8,6 +12,7 @@
 
 - Track time for a customer, pause and resume the timer, and add notes to entries.
 - Keep customer contact details in one searchable directory.
+- Manage employees, choose the current employee, and attribute every time entry to one.
 - Add or edit time entries manually, with separate date and time fields.
 - Filter entries by customer, date, and billing status, then review duration totals.
 - Update billing status for one entry or a group of selected entries.
@@ -39,7 +44,7 @@ To build without starting the application:
 dotnet build Kronix.sln
 ```
 
-The .NET SDK restores the NuGet dependencies during the first build. The repository does not currently include a packaged installer; `dotnet run` is the source-based way to launch the app.
+The .NET SDK restores the NuGet dependencies during the first build. Run the tests with `dotnet test Kronix.sln`. Every push is built and tested by GitHub Actions, which also publishes a self-contained Windows build as a workflow artifact.
 
 ## Using Kronix
 
@@ -118,7 +123,8 @@ Kronix/
 ├── Database/       SQLite access, schema management, backup and restore
 ├── Logging/        Application logging
 ├── Media/          Application media assets
-├── Resources/      Icons, images, animation, and bundled database
+├── Resources/      Icons, images, animation, and bundled sample database
+├── Tests/          xUnit tests for the data layer
 ├── Windows/        WPF views, dialogs, and export implementations
 ├── App.xaml        WPF application entry point and shared resources
 ├── Kronix.csproj   Target framework and NuGet dependencies
