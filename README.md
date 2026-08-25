@@ -139,10 +139,10 @@ Kronix/
 - [PDFsharp-WPF](https://www.nuget.org/packages/PDFsharp-WPF) for PDF export
 - [WpfAnimatedGif](https://www.nuget.org/packages/WpfAnimatedGif) for animated UI assets
 
-PDFsharp 6.5.0 uses its free AGPL license in Kronix. Distributions must comply with PDFsharp's AGPL terms or use a commercial PDFsharp license.
+PDFsharp 6.2.4 is MIT-licensed, which is compatible with Kronix's license.
 
 ## License
 
-Kronix is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE). You may use, study and modify it for personal, educational and other noncommercial purposes. **Commercial use requires my prior written approval** - contact me via [GitHub](https://github.com/roemertimon).
+Kronix is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE) (SPDX: `PolyForm-Noncommercial-1.0.0`). You may use, study and modify it for personal, educational and other noncommercial purposes. **Commercial use requires my prior written approval** - contact me via [GitHub](https://github.com/roemertimon).
 
 Third-party libraries retain their own licenses. The license does not grant rights to use Kronix branding or logos.
