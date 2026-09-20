@@ -145,6 +145,48 @@ public sealed class DatabaseHelperTests : IDisposable
     }
 
     [Fact]
+    public void Startup_MigratesPreEmployeeDatabaseAndKeepsAllData()
+    {
+        string oldPath = Path.Combine(_directory, "pre-employee.sqlite");
+        using (var connection = new SqliteConnection($"Data Source={oldPath}"))
+        {
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                                  CREATE TABLE TimeLogs (
+                                      Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                      ClientNumber TEXT NOT NULL,
+                                      StartTime TEXT, EndTime TEXT,
+                                      IsBilled INTEGER NOT NULL DEFAULT 0,
+                                      Notes TEXT
+                                  );
+                                  CREATE TABLE Customers (
+                                      ClientNumber TEXT PRIMARY KEY NOT NULL,
+                                      FirstName TEXT NOT NULL DEFAULT '', LastName TEXT NOT NULL DEFAULT '',
+                                      Company TEXT NOT NULL DEFAULT '', Street TEXT NOT NULL DEFAULT '',
+                                      PostalCode TEXT NOT NULL DEFAULT '', City TEXT NOT NULL DEFAULT '',
+                                      PhoneNumber TEXT NOT NULL DEFAULT '', HourlyRate REAL
+                                  );
+                                  INSERT INTO Customers (ClientNumber, Company, HourlyRate) VALUES ('3003', 'Acme', 85.5);
+                                  INSERT INTO TimeLogs (ClientNumber, StartTime, EndTime, IsBilled, Notes)
+                                  VALUES ('3003', '2026-10-10 08:00:00', '2026-10-10 10:00:00', 1, 'old note');
+                                  """;
+            command.ExecuteNonQuery();
+        }
+
+        string configurationPath = Path.Combine(_directory, "pre-employee-path.txt");
+        File.WriteAllText(configurationPath, oldPath);
+        var migrated = new DatabaseHelper(databasePathSettingPath: configurationPath);
+
+        Assert.True(migrated.IsDatabaseInitialized(), migrated.InitializationError);
+        DatabaseHelper.TimeLog log = Assert.Single(migrated.GetAllTimeLogs());
+        Assert.True(log.IsBilled);
+        Assert.Equal("old note", log.Notes);
+        Assert.Null(log.EmployeeNumber);
+        Assert.Equal(85.5m, migrated.GetCustomer("3003")!.HourlyRate);
+    }
+
+    [Fact]
     public void Startup_ClosesAnUnfinishedTimeLog()
     {
         DateTime start = DateTime.Today.AddDays(-1).AddHours(9);
