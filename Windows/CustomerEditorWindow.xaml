@@ -24,6 +24,14 @@
                            FontSize="21" FontWeight="SemiBold" Foreground="#1D2939"/>
                 <TextBlock x:Name="SubtitleTextBlock" Text="Kundendaten für Kronix speichern"
                            FontSize="14" Foreground="#667085" Margin="0,6,0,0"/>
+                <StackPanel x:Name="TemplatePanel" Margin="0,16,0,0" Visibility="Collapsed">
+                    <TextBlock Text="Vorlage übernehmen (optional)" FontSize="13" FontWeight="SemiBold"
+                               Foreground="#344054" Margin="0,0,0,6"/>
+                    <ComboBox x:Name="TemplateComboBox" Height="40" FontSize="14"
+                              VerticalContentAlignment="Center"
+                              ToolTip="Übernimmt Name, Adresse, Telefon und Stundensatz eines bestehenden Kunden. Die Kundennummer bleibt leer."
+                              SelectionChanged="TemplateComboBox_SelectionChanged"/>
+                </StackPanel>
             </StackPanel>
             <Grid Grid.Row="1" Margin="0,22,0,0">
                 <Grid.ColumnDefinitions>

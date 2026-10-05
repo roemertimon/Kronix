@@ -1,5 +1,8 @@
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using Kronix.Database;
 using Kronix.Logging;
@@ -12,11 +15,22 @@ public partial class CustomerEditorWindow : Window
 
     public DatabaseHelper.Customer Customer { get; private set; } = new();
 
-    public CustomerEditorWindow(DatabaseHelper.Customer? customer = null, string? requestedClientNumber = null)
+    public CustomerEditorWindow(DatabaseHelper.Customer? customer = null, string? requestedClientNumber = null,
+        IEnumerable<DatabaseHelper.Customer>? templates = null)
     {
         InitializeComponent();
         if (customer is null)
         {
+            if (templates is not null)
+            {
+                foreach (var template in templates)
+                {
+                    TemplateComboBox.Items.Add(new ComboBoxItem { Content = DescribeTemplate(template), Tag = template });
+                }
+
+                TemplatePanel.Visibility = TemplateComboBox.Items.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            }
+
             SubtitleTextBlock.Text = requestedClientNumber is null
                 ? "Kundendaten für Kronix speichern"
                 : $"Kundennummer {requestedClientNumber} ist noch nicht gespeichert. Ergänzen Sie die Daten, um den Kunden anzulegen.";
@@ -40,6 +54,34 @@ public partial class CustomerEditorWindow : Window
     }
 
     public string? OriginalClientNumber => _originalClientNumber;
+
+    private static string DescribeTemplate(DatabaseHelper.Customer customer)
+    {
+        string name = $"{customer.FirstName} {customer.LastName}".Trim();
+        string label = string.Join(" · ", new[] { customer.Company, name }.Where(s => !string.IsNullOrWhiteSpace(s)));
+        return label.Length == 0 ? customer.ClientNumber : $"{label} ({customer.ClientNumber})";
+    }
+
+    private void TemplateComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (TemplateComboBox.SelectedItem is not ComboBoxItem { Tag: DatabaseHelper.Customer template })
+        {
+            return;
+        }
+
+        FirstNameTextBox.Text = template.FirstName;
+        LastNameTextBox.Text = template.LastName;
+        CompanyTextBox.Text = template.Company;
+        StreetTextBox.Text = template.Street;
+        PostalCodeTextBox.Text = template.PostalCode;
+        CityTextBox.Text = template.City;
+        PhoneNumberTextBox.Text = template.PhoneNumber;
+        HourlyRateTextBox.Text = template.HourlyRate?.ToString("0.00", CultureInfo.GetCultureInfo("de-DE")) ?? string.Empty;
+        if (ClientNumberTextBox.IsEnabled)
+        {
+            ClientNumberTextBox.Focus();
+        }
+    }
 
     private void SaveButton_Click(object sender, RoutedEventArgs e)
     {

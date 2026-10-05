@@ -355,6 +355,28 @@ public class DatabaseHelper
         return customers;
     }
 
+    public List<string> GetNoteSuggestions(int limit = 500)
+    {
+        using var connection = new SqliteConnection(_connectionString);
+        connection.Open();
+        using var command = new SqliteCommand(
+            @"SELECT TRIM(Notes) AS Note, MAX(StartTime) FROM TimeLogs
+              WHERE Notes IS NOT NULL AND TRIM(Notes) <> '' AND INSTR(Notes, CHAR(10)) = 0
+              GROUP BY TRIM(Notes) COLLATE NOCASE
+              ORDER BY COUNT(*) DESC, MAX(StartTime) DESC
+              LIMIT @limit",
+            connection);
+        command.Parameters.AddWithValue("@limit", limit);
+        using var reader = command.ExecuteReader();
+        var notes = new List<string>();
+        while (reader.Read())
+        {
+            notes.Add(reader.GetString(0));
+        }
+
+        return notes;
+    }
+
     public Customer? GetCustomer(string clientNumber)
     {
         using var connection = new SqliteConnection(_connectionString);
