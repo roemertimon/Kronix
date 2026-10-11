@@ -1,10 +1,11 @@
 ﻿<Window x:Class="Kronix.Windows.DashboardWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Kronix" Height="620" Width="1000"
-        MinHeight="520" MinWidth="800"
+        Title="Kronix" Height="680" Width="1000"
+        MinHeight="680" MinWidth="1000"
         ResizeMode="CanResize"
         WindowStartupLocation="CenterScreen"
+        UseLayoutRounding="True" SnapsToDevicePixels="True"
         Closing="Window_Closing">
     
     <DockPanel Background="#F7F9FB">
@@ -44,25 +45,53 @@
         </DockPanel.Resources>
 
         <Border DockPanel.Dock="Top" Background="White" BorderBrush="#E6EBF0"
-                BorderThickness="0,0,0,1" Padding="0,10">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                <Button Name="ZeiterfassungBtn" Content="Zeiterfassung"
-                        MinWidth="160" Height="42"
-                        Style="{StaticResource MenuButtonStyle}"
-                        Click="ZeiterfassungButton_Click"/>
-                <Button Name="KundenBtn" Content="Kunden"
-                        MinWidth="160" Height="42" Margin="6,0,0,0"
-                        Style="{StaticResource MenuButtonStyle}"
-                        Click="KundenButton_Click"/>
-                <Button Name="DatenBtn" Content="Zeiteinträge"
-                        MinWidth="160" Height="42" Margin="6,0,0,0"
-                        Style="{StaticResource MenuButtonStyle}"
-                        Click="DatenButton_Click"/>
-                <Button Name="EinstellungenBtn" Content="Einstellungen"
-                        MinWidth="160" Height="42" Margin="6,0,0,0"
-                        Style="{StaticResource MenuButtonStyle}"
-                        Click="EinstellungenButton_Click"/>
-            </StackPanel>
+                BorderThickness="0,0,0,1">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0" Margin="20,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="150"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="150"/>
+                    </Grid.ColumnDefinitions>
+                    <Image Source="pack://application:,,,/Resources/Kronix_logo_name.jpg"
+                           Width="132" Height="40" Stretch="Uniform"
+                           RenderOptions.BitmapScalingMode="HighQuality"
+                           HorizontalAlignment="Left" VerticalAlignment="Center"
+                           ToolTip="Kronix"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Button Name="ZeiterfassungBtn" Content="Zeiterfassung"
+                                MinWidth="145" Height="42"
+                                Style="{StaticResource MenuButtonStyle}"
+                                Click="ZeiterfassungButton_Click"/>
+                        <Button Name="KundenBtn" Content="Kunden"
+                                MinWidth="145" Height="42" Margin="6,0,0,0"
+                                Style="{StaticResource MenuButtonStyle}"
+                                Click="KundenButton_Click"/>
+                        <Button Name="DatenBtn" Content="Zeiteinträge"
+                                MinWidth="145" Height="42" Margin="6,0,0,0"
+                                Style="{StaticResource MenuButtonStyle}"
+                                Click="DatenButton_Click"/>
+                        <Button Name="EinstellungenBtn" Content="Einstellungen"
+                                MinWidth="145" Height="42" Margin="6,0,0,0"
+                                Style="{StaticResource MenuButtonStyle}"
+                                Click="EinstellungenButton_Click"/>
+                    </StackPanel>
+                </Grid>
+                <Border x:Name="DatabaseWarningBorder" Grid.Row="1"
+                        Background="#FFF4E5" Padding="18,8"
+                        Visibility="Collapsed">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Datenbankproblem" FontWeight="SemiBold"
+                                   Foreground="#93370D" Margin="0,0,8,0"/>
+                        <TextBlock x:Name="DatabaseWarningTextBlock"
+                                   Foreground="#93370D" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
         </Border>
 
         <ContentControl x:Name="MainContentControl" HorizontalAlignment="Stretch"

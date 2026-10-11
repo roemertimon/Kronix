@@ -130,11 +130,17 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <Grid Grid.Row="0" Margin="2,0,2,14">
+        <Grid Grid.Row="0" Margin="2,0,2,18">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="Zeiteinträge" FontSize="23" FontWeight="SemiBold"
+                           Foreground="{StaticResource NavyBrush}"/>
+                <TextBlock Text="Erfasste Zeiten filtern, bearbeiten und exportieren"
+                           FontSize="13" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0"/>
+            </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <Border Background="White" CornerRadius="9" Padding="14,6"
                         BorderBrush="#E6EBF0" BorderThickness="1" Margin="0,0,10,0">
