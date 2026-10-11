@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <OutputType>WinExe</OutputType>
-        <TargetFramework>net7.0-windows</TargetFramework>
+        <TargetFramework>net8.0-windows</TargetFramework>
         <Nullable>enable</Nullable>
         <UseWPF>true</UseWPF>
         <UseWindowsForms>true</UseWindowsForms>
@@ -11,10 +11,9 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="Notification.Wpf" Version="8.0.0" />
-      <PackageReference Include="System.Data.SQLite" Version="1.0.119" />
+      <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.10" />
+      <PackageReference Include="Notification.Wpf" Version="11.0.0" />
       <PackageReference Include="WpfAnimatedGif" Version="2.0.2" />
-      
     </ItemGroup>
 
     <ItemGroup>
@@ -44,9 +43,10 @@
     </ItemGroup>
 
     <ItemGroup>
-        <None Update="Resources\kundenDaten.sqlite">
-            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </None>
+        <Content Include="Resources\kundenDaten.sqlite">
+            <Link>Resources\kundenDaten.sqlite</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
     </ItemGroup>
 
     <ItemGroup>

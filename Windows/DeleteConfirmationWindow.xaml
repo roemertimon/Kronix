@@ -1,0 +1,78 @@
+﻿<Window x:Class="Kronix.Windows.DeleteConfirmationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Eintrag löschen"
+        Width="440" SizeToContent="Height"
+        WindowStyle="None" AllowsTransparency="True"
+        Background="Transparent" ResizeMode="NoResize"
+        ShowInTaskbar="False" WindowStartupLocation="CenterOwner"
+        UseLayoutRounding="True">
+    <Border Background="White" CornerRadius="16" Padding="28"
+            BorderBrush="#E5EAF0" BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect Color="#27364B" BlurRadius="24" ShadowDepth="5" Opacity="0.18"/>
+        </Border.Effect>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="56"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Border Width="48" Height="48" CornerRadius="24" Background="#FFF1F0"
+                        VerticalAlignment="Top">
+                    <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets"
+                               FontSize="20" Foreground="#B42318"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <StackPanel Grid.Column="1" Margin="12,1,0,0">
+                    <TextBlock Text="Eintrag löschen?" FontSize="21" FontWeight="SemiBold"
+                               Foreground="#1D2939"/>
+                    <TextBlock Text="Möchten Sie diesen Zeiteintrag wirklich entfernen?"
+                               FontSize="14" Foreground="#667085" TextWrapping="Wrap"
+                               Margin="0,6,0,0"/>
+                </StackPanel>
+                <Button Grid.Column="2" Content="&#xE8BB;"
+                        FontFamily="Segoe MDL2 Assets" FontSize="13"
+                        Foreground="#667085" Background="Transparent"
+                        BorderThickness="0" Width="30" Height="30"
+                        VerticalAlignment="Top" ToolTip="Abbrechen"
+                        AutomationProperties.Name="Abbrechen"
+                        Click="CancelButton_Click"/>
+            </Grid>
+
+            <Border Grid.Row="1" Background="#F7F8FA" CornerRadius="8"
+                    Padding="14,11" Margin="0,22,0,0">
+                <StackPanel>
+                    <TextBlock x:Name="ClientTextBlock" FontSize="14"
+                               FontWeight="SemiBold" Foreground="#344054"/>
+                    <TextBlock x:Name="StartTimeTextBlock" FontSize="13"
+                               Foreground="#667085" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <TextBlock Grid.Row="2" Text="Dieser Vorgang kann nicht rückgängig gemacht werden."
+                       FontSize="12" Foreground="#98A2B3" Margin="0,12,0,0"/>
+
+            <StackPanel Grid.Row="3" Orientation="Horizontal"
+                        HorizontalAlignment="Right" Margin="0,24,0,0">
+                <Button Content="Abbrechen" Width="112" Height="40"
+                        Background="White" Foreground="#344054"
+                        BorderBrush="#D0D5DD" BorderThickness="1"
+                        FontSize="14" FontWeight="SemiBold" Margin="0,0,10,0"
+                        Click="CancelButton_Click"/>
+                <Button Content="Eintrag löschen" Width="132" Height="40"
+                        Background="#B42318" Foreground="White"
+                        BorderThickness="0" FontSize="14" FontWeight="SemiBold"
+                        Click="DeleteButton_Click"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

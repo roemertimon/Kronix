@@ -1,45 +1,73 @@
 ﻿<Window x:Class="Kronix.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:gif="http://wpfanimatedgif.codeplex.com"
-        Title="Kronix" Height="500" Width="600" ResizeMode="NoResize">
+        Title="Kronix" Height="610" Width="680"
+        ResizeMode="NoResize" WindowStartupLocation="CenterScreen"
+        Background="White">
+    <Window.Resources>
+        <SolidColorBrush x:Key="NavyBrush" Color="#20364F"/>
+        <SolidColorBrush x:Key="AccentBrush" Color="#087F5B"/>
+    </Window.Resources>
     <Grid>
-        <!-- Logo -->
-        <Image Source="pack://application:,,,/Resources/Kronix_logo.jpg" 
-               HorizontalAlignment="Center" 
-               VerticalAlignment="Top" 
-               Width="350" 
-               Height="200" 
-               Margin="0,40,0,0"
-               Panel.ZIndex="1"/>
-        
-        <!-- Animated GIF -->
-        <Image gif:ImageBehavior.AnimatedSource="pack://application:,,,/Resources/Kronix_animation.gif" 
-               HorizontalAlignment="Center" 
-               VerticalAlignment="Top" 
-               Margin="0,150,0,0"
-               Width="220" 
-               Height="220" 
-               Panel.ZIndex="0"/>
+        <StackPanel Width="357" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Margin="24">
+            <Image Source="pack://application:,,,/Resources/Kronix_logo.jpg"
+                   HorizontalAlignment="Center" Width="357" Height="162" Stretch="Uniform"/>
 
-        <!-- Start Button -->
-        <Button x:Name="StartButton"
-                Content="Verbinde mit Datenbank..."
-                HorizontalAlignment="Center"
-                VerticalAlignment="Bottom"
-                Width="350" 
-                Height="50" 
-                FontFamily="Calibri"
-                Margin="0,0,0,40"
-                FontSize="22"
-                FontWeight="Bold"
-                Padding="0"
-                Background="white"
-                Foreground="black"
-                BorderBrush="MidnightBlue"
-                BorderThickness="2"
-                Click="StartButton_Click"
-                IsEnabled="False"/>
+            <Border Background="#F7F9FB" CornerRadius="10" Padding="17,10"
+                    BorderBrush="#E6EBF0" BorderThickness="1" Margin="0,22,0,0"
+                    Width="357">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                            HorizontalAlignment="Center">
+                    <TextBlock x:Name="DateTextBlock" Text="--"
+                               Width="185" TextAlignment="Right"
+                               Foreground="#64748B" FontSize="14"
+                               VerticalAlignment="Center" Margin="0,0,18,0"/>
+                    <TextBlock x:Name="ClockTextBlock" Text="--:--:--"
+                               Width="100" TextAlignment="Left"
+                               Foreground="{StaticResource NavyBrush}"
+                               FontFamily="Consolas" FontSize="22"
+                               FontWeight="Normal" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Border>
 
+            <Button x:Name="StartButton" Content="Starten"
+                    Width="357" Height="44" Margin="0,48,0,0"
+                    FontFamily="Calibri" FontSize="16" FontWeight="Bold"
+                    Background="{StaticResource NavyBrush}" Foreground="White"
+                    BorderThickness="0" Click="StartButton_Click" IsEnabled="False">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder" Background="{TemplateBinding Background}"
+                                CornerRadius="7" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#2D4A68"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.65"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
+                    VerticalAlignment="Bottom" Margin="24,0,24,14">
+            <ProgressBar x:Name="InitializationProgressBar" Width="54" Height="2"
+                         IsIndeterminate="True" Foreground="{StaticResource AccentBrush}"
+                         Background="#DCE5EC" VerticalAlignment="Center"
+                         Margin="0,0,10,0"/>
+            <Ellipse x:Name="StatusIndicator" Width="7" Height="7"
+                     Fill="{StaticResource AccentBrush}" VerticalAlignment="Center"
+                     Visibility="Collapsed" Margin="0,0,7,0"/>
+            <TextBlock x:Name="StatusText" Text="Kronix wird gestartet …"
+                       Foreground="#7A8795" FontSize="11"
+                       TextWrapping="Wrap" VerticalAlignment="Center"
+                       MaxWidth="420"/>
+        </StackPanel>
     </Grid>
 </Window>
