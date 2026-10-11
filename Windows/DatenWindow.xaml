@@ -307,7 +307,7 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="Status" Width="0.95*" MinWidth="105">
+                <DataGridTemplateColumn Header="Abgerechnet" Width="0.95*" MinWidth="105">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <CheckBox IsChecked="{Binding IsBilled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"

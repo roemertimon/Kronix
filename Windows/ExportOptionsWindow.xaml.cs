@@ -14,20 +14,6 @@ public partial class ExportOptionsWindow : Window
     public ExportOptionsWindow()
     {
         InitializeComponent();
-        UpdateFormatOptions();
-    }
-
-    private void FormatRadioButton_Checked(object sender, RoutedEventArgs e)
-    {
-        UpdateFormatOptions();
-    }
-
-    private void UpdateFormatOptions()
-    {
-        if (IncludeSummaryCheckBox is not null)
-        {
-            IncludeSummaryCheckBox.IsEnabled = IsXlsx;
-        }
     }
 
     private void ContinueButton_Click(object sender, RoutedEventArgs e)

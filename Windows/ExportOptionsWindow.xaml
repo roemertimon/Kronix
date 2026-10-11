@@ -29,10 +29,9 @@
                            Foreground="#344054" Margin="0,0,0,8"/>
                 <StackPanel Orientation="Horizontal">
                     <RadioButton x:Name="XlsxRadioButton" Content="Excel-Arbeitsmappe (.xlsx)"
-                                 GroupName="Format" IsChecked="True" Margin="0,0,20,0"
-                                 Checked="FormatRadioButton_Checked"/>
+                                 GroupName="Format" IsChecked="True" Margin="0,0,20,0"/>
                     <RadioButton x:Name="PdfRadioButton" Content="PDF (.pdf)"
-                                 GroupName="Format" Checked="FormatRadioButton_Checked"/>
+                                 GroupName="Format"/>
                 </StackPanel>
 
                 <TextBlock Text="Aufteilung" FontSize="13" FontWeight="SemiBold"
@@ -42,14 +41,14 @@
                           FontSize="14" Foreground="#344054"
                           IsChecked="True"/>
                 <TextBlock x:Name="SplitHelpTextBlock"
-                           Text="Excel: eigenes Tabellenblatt je Kunde. PDF: eigene Datei je Kunde."
+                           Text="Excel: eigenes Tabellenblatt je Kunde. PDF: eigene Seite je Kunde."
                            FontSize="12" Foreground="#667085"
                            TextWrapping="Wrap" Margin="24,4,0,0"/>
                 <CheckBox x:Name="IncludeSummaryCheckBox"
-                          Content="Abrechnungsübersicht mit aufnehmen (Excel)"
+                          Content="Abrechnungsübersicht mit aufnehmen"
                           FontSize="14" Foreground="#344054"
                           IsChecked="True" Margin="0,12,0,0"/>
-                <TextBlock Text="Enthält die Gesamtsumme und Stunden je Kunde."
+                <TextBlock Text="Excel: eigenes Übersichtsblatt. PDF: zusätzliche Übersichtsseite am Anfang."
                            FontSize="12" Foreground="#667085"
                            TextWrapping="Wrap" Margin="24,4,0,0"/>
 

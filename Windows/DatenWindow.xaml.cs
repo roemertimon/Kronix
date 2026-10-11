@@ -356,7 +356,10 @@ public partial class DatenWindow : UserControl
             else
             {
                 TimeLogPdfExporter.Export(
-                    dialog.FileName, exportLogs, options.UseDecimalHours, options.SeparateCustomers);
+                    dialog.FileName, exportLogs, options.UseDecimalHours,
+                    options.SeparateCustomers, options.IncludeSummary,
+                    FromDatePicker.SelectedDate, ToDatePicker.SelectedDate,
+                    GetExportCustomerNames(exportLogs));
                 exportCreated = true;
             }
 
@@ -393,6 +396,32 @@ public partial class DatenWindow : UserControl
             ShowError(exportCreated ? "Export erstellt, aber Aktualisierung fehlgeschlagen" : "Export fehlgeschlagen",
                 ex.Message);
         }
+    }
+
+    private Dictionary<string, string> GetExportCustomerNames(IEnumerable<DatabaseHelper.TimeLog> logs)
+    {
+        var customerNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string clientNumber in logs
+                     .Select(log => log.ClientNumber)
+                     .Where(number => !string.IsNullOrWhiteSpace(number))
+                     .Select(number => number!)
+                     .Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            DatabaseHelper.Customer? customer = _dbHelper.GetCustomer(clientNumber);
+            if (customer is null)
+            {
+                continue;
+            }
+
+            string name = string.Join(" · ", new[] { customer.Company, customer.DisplayName }
+                .Where(value => !string.IsNullOrWhiteSpace(value)));
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                customerNames[clientNumber] = name;
+            }
+        }
+
+        return customerNames;
     }
 
     private void ExportToXlsx(
