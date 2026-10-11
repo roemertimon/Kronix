@@ -203,6 +203,8 @@ public class DatabaseHelper
         return _isDatabaseInitialized;
     }
 
+    public event EventHandler? DatabaseStateChanged;
+
     public List<Customer> GetAllCustomers()
     {
         using var connection = new SqliteConnection(_connectionString);
@@ -318,7 +320,16 @@ public class DatabaseHelper
         }
 
         using var command = new SqliteCommand("PRAGMA integrity_check", connection);
-        return Convert.ToString(command.ExecuteScalar()) ?? "Integritätsprüfung lieferte kein Ergebnis.";
+        string result = Convert.ToString(command.ExecuteScalar()) ??
+                        "Integritätsprüfung lieferte kein Ergebnis.";
+        if (string.Equals(result, "ok", StringComparison.OrdinalIgnoreCase))
+        {
+            _isDatabaseInitialized = true;
+            InitializationError = null;
+            DatabaseStateChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        return result;
     }
 
     public void CreateAndSwitchToDatabase(string path)
@@ -392,6 +403,7 @@ public class DatabaseHelper
         _isDatabaseInitialized = true;
         _hasActiveTimeLog = false;
         InitializationError = null;
+        DatabaseStateChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public void ExportDatabaseArchive(string archivePath)

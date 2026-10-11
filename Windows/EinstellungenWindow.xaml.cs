@@ -21,12 +21,26 @@ public partial class EinstellungenWindow : UserControl
     private void RefreshDatabaseInfo()
     {
         DatabasePathTextBlock.Text = _dbHelper.DatabasePath;
+        bool isInitialized = _dbHelper.IsDatabaseInitialized();
         DatabaseSizeTextBlock.Text = FormatBytes(_dbHelper.GetDatabaseSize());
-        TimeLogCountTextBlock.Text = _dbHelper.GetTimeLogCount().ToString("N0");
-        CustomerCountTextBlock.Text = _dbHelper.GetCustomerCount().ToString("N0");
-        DatabaseStatusTextBlock.Text = _dbHelper.IsDatabaseInitialized()
-            ? "Datenbankverbindung ist aktiv. Änderungen werden direkt in dieser Datei gespeichert."
-            : $"Datenbank nicht verfügbar: {_dbHelper.InitializationError}";
+        if (isInitialized)
+        {
+            TimeLogCountTextBlock.Text = _dbHelper.GetTimeLogCount().ToString("N0");
+            CustomerCountTextBlock.Text = _dbHelper.GetCustomerCount().ToString("N0");
+            DatabaseStatusTextBlock.Text =
+                "Datenbankverbindung ist aktiv. Änderungen werden direkt in dieser Datei gespeichert.";
+            DatabaseStatusTextBlock.Foreground = new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromRgb(40, 112, 77));
+        }
+        else
+        {
+            TimeLogCountTextBlock.Text = "–";
+            CustomerCountTextBlock.Text = "–";
+            DatabaseStatusTextBlock.Text =
+                $"Datenbank nicht verfügbar: {_dbHelper.InitializationError ?? "Bitte Datenbank auswählen oder neu anlegen."}";
+            DatabaseStatusTextBlock.Foreground = new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromRgb(180, 35, 24));
+        }
     }
 
     private void SelectDatabaseButton_Click(object sender, RoutedEventArgs e)
