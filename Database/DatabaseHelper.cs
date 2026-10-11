@@ -234,6 +234,47 @@ public class DatabaseHelper
         return reader.Read() ? ReadCustomer(reader) : null;
     }
 
+    public int GetTimeLogCountForCustomer(string clientNumber)
+    {
+        using var connection = new SqliteConnection(_connectionString);
+        connection.Open();
+        using var command = new SqliteCommand(
+            "SELECT COUNT(*) FROM TimeLogs WHERE ClientNumber = @number COLLATE NOCASE",
+            connection);
+        command.Parameters.AddWithValue("@number", clientNumber.Trim());
+        return Convert.ToInt32(command.ExecuteScalar());
+    }
+
+    public void DeleteCustomer(string clientNumber)
+    {
+        using var connection = new SqliteConnection(_connectionString);
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+
+        using var countCommand = new SqliteCommand(
+            "SELECT COUNT(*) FROM TimeLogs WHERE ClientNumber = @number COLLATE NOCASE",
+            connection, transaction);
+        countCommand.Parameters.AddWithValue("@number", clientNumber.Trim());
+        int timeLogCount = Convert.ToInt32(countCommand.ExecuteScalar());
+        if (timeLogCount > 0)
+        {
+            string entryLabel = timeLogCount == 1 ? "Zeiteintrag" : "Zeiteinträge";
+            throw new InvalidOperationException(
+                $"Der Kunde kann nicht gelöscht werden, da ihm {timeLogCount} {entryLabel} zugeordnet sind. Löschen Sie zuerst alle zugehörigen Zeiteinträge.");
+        }
+
+        using var deleteCommand = new SqliteCommand(
+            "DELETE FROM Customers WHERE ClientNumber = @number COLLATE NOCASE",
+            connection, transaction);
+        deleteCommand.Parameters.AddWithValue("@number", clientNumber.Trim());
+        if (deleteCommand.ExecuteNonQuery() != 1)
+        {
+            throw new InvalidOperationException("Der Kunde wurde nicht gefunden.");
+        }
+
+        transaction.Commit();
+    }
+
     public void SaveCustomer(Customer customer, string? originalClientNumber = null)
     {
         if (string.IsNullOrWhiteSpace(customer.ClientNumber))
@@ -520,6 +561,59 @@ public class DatabaseHelper
         Console.WriteLine("Start time log added for client: " + clientNumber);
         using var idCommand = new SqliteCommand("SELECT last_insert_rowid()", connection);
         return Convert.ToInt32(idCommand.ExecuteScalar());
+    }
+
+    public int AddManualTimeLog(string clientNumber, DateTime startTime, DateTime endTime, string? notes)
+    {
+        if (string.IsNullOrWhiteSpace(clientNumber))
+        {
+            throw new ArgumentException("Die Kundennummer darf nicht leer sein.", nameof(clientNumber));
+        }
+
+        startTime = TruncateToMinute(startTime);
+        if (endTime < startTime)
+        {
+            throw new ArgumentException("Die Endzeit darf nicht vor der Startzeit liegen.", nameof(endTime));
+        }
+
+        endTime = RoundEndTime(startTime, endTime);
+        using var connection = new SqliteConnection(_connectionString);
+        connection.Open();
+        using var command = new SqliteCommand(
+            @"INSERT INTO TimeLogs (ClientNumber, StartTime, EndTime, Notes)
+              VALUES (@clientNumber, @startTime, @endTime, @notes)",
+            connection);
+        command.Parameters.AddWithValue("@clientNumber", clientNumber.Trim());
+        command.Parameters.AddWithValue("@startTime", startTime.ToString("yyyy-MM-dd HH:mm:ss"));
+        command.Parameters.AddWithValue("@endTime", endTime.ToString("yyyy-MM-dd HH:mm:ss"));
+        command.Parameters.AddWithValue("@notes", (object?)notes ?? DBNull.Value);
+        command.ExecuteNonQuery();
+        using var idCommand = new SqliteCommand("SELECT last_insert_rowid()", connection);
+        return Convert.ToInt32(idCommand.ExecuteScalar());
+    }
+
+    public void UpdateOpenTimeLogStartTime(int timeLogId, DateTime startTime, string? notes = null)
+    {
+        if (startTime > DateTime.Now)
+        {
+            throw new ArgumentException("Die Startzeit darf nicht in der Zukunft liegen.", nameof(startTime));
+        }
+
+        using var connection = new SqliteConnection(_connectionString);
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+        using var command = new SqliteCommand(
+            "UPDATE TimeLogs SET StartTime = @startTime, Notes = COALESCE(@notes, Notes) WHERE Id = @id AND EndTime IS NULL",
+            connection, transaction);
+        command.Parameters.AddWithValue("@id", timeLogId);
+        command.Parameters.AddWithValue("@startTime", TruncateToMinute(startTime).ToString("yyyy-MM-dd HH:mm:ss"));
+        command.Parameters.AddWithValue("@notes", (object?)notes ?? DBNull.Value);
+        if (command.ExecuteNonQuery() != 1)
+        {
+            throw new InvalidOperationException("Der laufende Zeiteintrag wurde nicht gefunden.");
+        }
+
+        transaction.Commit();
     }
 
     public bool StopTimeLog(int timeLogId, DateTime endTime)

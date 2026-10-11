@@ -1,0 +1,78 @@
+<Window x:Class="Kronix.Windows.ExportOptionsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Exportoptionen" Width="480" SizeToContent="Height"
+        WindowStyle="None" AllowsTransparency="True"
+        Background="Transparent" ResizeMode="NoResize"
+        ShowInTaskbar="False" WindowStartupLocation="CenterOwner"
+        UseLayoutRounding="True">
+    <Border Background="White" CornerRadius="16" Padding="28"
+            BorderBrush="#E5EAF0" BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect Color="#27364B" BlurRadius="24" ShadowDepth="5" Opacity="0.18"/>
+        </Border.Effect>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <StackPanel Grid.Row="0">
+                <TextBlock Text="Exportoptionen" FontSize="21"
+                           FontWeight="SemiBold" Foreground="#1D2939"/>
+                <TextBlock Text="Es werden die aktuell gefilterten Zeiteinträge exportiert."
+                           FontSize="14" Foreground="#667085" Margin="0,6,0,0"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+            <StackPanel Grid.Row="1" Margin="0,22,0,0">
+                <TextBlock Text="Exportformat" FontSize="13" FontWeight="SemiBold"
+                           Foreground="#344054" Margin="0,0,0,8"/>
+                <StackPanel Orientation="Horizontal">
+                    <RadioButton x:Name="XlsxRadioButton" Content="Excel-Arbeitsmappe (.xlsx)"
+                                 GroupName="Format" IsChecked="True" Margin="0,0,20,0"/>
+                    <RadioButton x:Name="CsvRadioButton" Content="CSV (.csv)"
+                                 GroupName="Format"/>
+                </StackPanel>
+
+                <TextBlock Text="Aufteilung" FontSize="13" FontWeight="SemiBold"
+                           Foreground="#344054" Margin="0,20,0,8"/>
+                <CheckBox x:Name="SeparateCustomersCheckBox"
+                          Content="Nach Kunde trennen"
+                          FontSize="14" Foreground="#344054"
+                          IsChecked="True"/>
+                <TextBlock x:Name="SplitHelpTextBlock"
+                           Text="Excel: eigenes Tabellenblatt je Kunde. CSV: eigene Datei je Kunde."
+                           FontSize="12" Foreground="#667085"
+                           TextWrapping="Wrap" Margin="24,4,0,0"/>
+                <CheckBox x:Name="IncludeSummaryCheckBox"
+                          Content="Abrechnungsübersicht mit aufnehmen (Excel)"
+                          FontSize="14" Foreground="#344054"
+                          IsChecked="True" Margin="0,12,0,0"/>
+                <TextBlock Text="Enthält die Gesamtsumme und Stunden je Kunde."
+                           FontSize="12" Foreground="#667085"
+                           TextWrapping="Wrap" Margin="24,4,0,0"/>
+
+                <TextBlock Text="Zeitformat" FontSize="13" FontWeight="SemiBold"
+                           Foreground="#344054" Margin="0,20,0,8"/>
+                <StackPanel Orientation="Horizontal">
+                    <RadioButton x:Name="DecimalHoursRadioButton" Content="Industriestunden (1,75 h)"
+                                 GroupName="TimeFormat" IsChecked="True" Margin="0,0,20,0"/>
+                    <RadioButton x:Name="ClockTimeRadioButton" Content="Stunden:Minuten (01:45)"
+                                 GroupName="TimeFormat"/>
+                </StackPanel>
+            </StackPanel>
+            <StackPanel Grid.Row="2" Orientation="Horizontal"
+                        HorizontalAlignment="Right" Margin="0,24,0,0">
+                <Button Content="Abbrechen" Width="112" Height="40"
+                        Background="White" Foreground="#344054"
+                        BorderBrush="#D0D5DD" BorderThickness="1"
+                        FontSize="14" FontWeight="SemiBold" Margin="0,0,10,0"
+                        Click="CancelButton_Click"/>
+                <Button Content="Weiter" Width="112" Height="40"
+                        Background="#20364F" Foreground="White"
+                        BorderThickness="0" FontSize="14" FontWeight="SemiBold"
+                        Click="ContinueButton_Click"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

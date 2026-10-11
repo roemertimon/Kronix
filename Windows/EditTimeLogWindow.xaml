@@ -20,9 +20,9 @@
             </Grid.RowDefinitions>
 
             <StackPanel Grid.Row="0">
-                <TextBlock Text="Zeiteintrag bearbeiten" FontSize="21"
+                <TextBlock x:Name="TitleTextBlock" Text="Zeiteintrag bearbeiten" FontSize="21"
                            FontWeight="SemiBold" Foreground="#1D2939"/>
-                <TextBlock Text="Kundennummer und Zeiten anpassen"
+                <TextBlock x:Name="SubtitleTextBlock" Text="Kundennummer und Zeiten anpassen"
                            FontSize="14" Foreground="#667085" Margin="0,6,0,0"/>
             </StackPanel>
 
@@ -38,31 +38,35 @@
                 <TextBox x:Name="StartTimeTextBox" Height="40" Padding="11,0"
                          VerticalContentAlignment="Center" FontSize="15"
                          BorderBrush="#D0D5DD" BorderThickness="1"/>
-                <TextBlock Text="Endzeit (TT.MM.JJJJ HH:MM)" FontSize="13"
-                           FontWeight="SemiBold" Foreground="#344054"
-                           Margin="0,15,0,6"/>
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="10"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBox x:Name="EndTimeTextBox" Height="40" Padding="11,0"
-                             VerticalContentAlignment="Center" FontSize="15"
+                <StackPanel x:Name="EndTimeSection" Margin="0,15,0,0">
+                    <TextBlock Text="Endzeit (TT.MM.JJJJ HH:MM)" FontSize="13"
+                               FontWeight="SemiBold" Foreground="#344054"
+                               Margin="0,0,0,6"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="EndTimeTextBox" Height="40" Padding="11,0"
+                                 VerticalContentAlignment="Center" FontSize="15"
+                                 BorderBrush="#D0D5DD" BorderThickness="1"/>
+                        <Button Grid.Column="2" Content="Auf 5 Min. runden"
+                                Height="40" Padding="12,0"
+                                Background="#E9EEF4" Foreground="#20364F"
+                                BorderThickness="0" FontSize="13" FontWeight="SemiBold"
+                                Click="RoundEndTimeButton_Click"/>
+                    </Grid>
+                </StackPanel>
+                <StackPanel x:Name="NotesSection" Margin="0,15,0,0">
+                    <TextBlock Text="Tätigkeit / Notiz" FontSize="13"
+                               FontWeight="SemiBold" Foreground="#344054"
+                               Margin="0,0,0,6"/>
+                    <TextBox x:Name="NotesTextBox" MinHeight="74" MaxHeight="120"
+                             Padding="11,8" VerticalContentAlignment="Top"
+                             TextWrapping="Wrap" AcceptsReturn="True" FontSize="14"
                              BorderBrush="#D0D5DD" BorderThickness="1"/>
-                    <Button Grid.Column="2" Content="Auf 5 Min. runden"
-                            Height="40" Padding="12,0"
-                            Background="#E9EEF4" Foreground="#20364F"
-                            BorderThickness="0" FontSize="13" FontWeight="SemiBold"
-                            Click="RoundEndTimeButton_Click"/>
-                </Grid>
-                <TextBlock Text="Tätigkeit / Notiz" FontSize="13"
-                           FontWeight="SemiBold" Foreground="#344054"
-                           Margin="0,15,0,6"/>
-                <TextBox x:Name="NotesTextBox" MinHeight="74" MaxHeight="120"
-                         Padding="11,8" VerticalContentAlignment="Top"
-                         TextWrapping="Wrap" AcceptsReturn="True" FontSize="14"
-                         BorderBrush="#D0D5DD" BorderThickness="1"/>
+                </StackPanel>
                 <TextBlock x:Name="ErrorTextBlock" Foreground="#B42318"
                            FontSize="12" TextWrapping="Wrap" Margin="0,10,0,0"
                            Visibility="Collapsed"/>

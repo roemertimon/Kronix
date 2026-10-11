@@ -11,6 +11,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using Kronix.Database;
+using ClosedXML.Excel;
 using Microsoft.Win32;
 
 namespace Kronix.Windows;
@@ -20,6 +21,7 @@ public partial class DatenWindow : UserControl
     private readonly DatabaseHelper _dbHelper;
     private readonly ObservableCollection<DatabaseHelper.TimeLog> _timeLogs = new();
     private readonly ICollectionView _timeLogsView;
+    private bool _isViewInitialized;
 
     public DatenWindow(DatabaseHelper dbHelper)
     {
@@ -28,6 +30,10 @@ public partial class DatenWindow : UserControl
         _timeLogsView = CollectionViewSource.GetDefaultView(_timeLogs);
         _timeLogsView.Filter = FilterTimeLog;
         DataGridRecords.ItemsSource = _timeLogsView;
+        DateTime today = DateTime.Today;
+        FromDatePicker.SelectedDate = new DateTime(today.Year, today.Month, 1);
+        ToDatePicker.SelectedDate = today;
+        _isViewInitialized = true;
         LoadAllTimeLogs();
     }
 
@@ -73,8 +79,18 @@ public partial class DatenWindow : UserControl
         RefreshFiltersIfValid();
     }
 
+    private void StatusFilter_Changed(object sender, RoutedEventArgs e)
+    {
+        RefreshFiltersIfValid();
+    }
+
     private void RefreshFiltersIfValid()
     {
+        if (!_isViewInitialized)
+        {
+            return;
+        }
+
         if (FromDatePicker.SelectedDate is DateTime fromDate &&
             ToDatePicker.SelectedDate is DateTime toDate &&
             fromDate.Date > toDate.Date)
@@ -99,6 +115,7 @@ public partial class DatenWindow : UserControl
         CustomerFilterTextBox.Clear();
         FromDatePicker.SelectedDate = null;
         ToDatePicker.SelectedDate = null;
+        AllStatusRadioButton.IsChecked = true;
         _timeLogsView.Refresh();
         UpdateResultsCount();
     }
@@ -120,13 +137,17 @@ public partial class DatenWindow : UserControl
 
         DateTime? fromDate = FromDatePicker.SelectedDate?.Date;
         DateTime? toDate = ToDatePicker.SelectedDate?.Date;
+        bool statusMatches = AllStatusRadioButton.IsChecked == true ||
+                             (OpenStatusRadioButton.IsChecked == true && !log.IsBilled) ||
+                             (BilledStatusRadioButton.IsChecked == true && log.IsBilled);
         if (log.StartTime is not DateTime startTime)
         {
-            return !fromDate.HasValue && !toDate.HasValue;
+            return !fromDate.HasValue && !toDate.HasValue && statusMatches;
         }
 
         return (!fromDate.HasValue || startTime.Date >= fromDate.Value) &&
-               (!toDate.HasValue || startTime.Date <= toDate.Value);
+               (!toDate.HasValue || startTime.Date <= toDate.Value) &&
+               statusMatches;
     }
 
     private void UpdateResultsCount()
@@ -138,9 +159,21 @@ public partial class DatenWindow : UserControl
             (log.Duration ?? (log.StartTime is DateTime startTime && log.EndTime is null
                 ? now - startTime
                 : TimeSpan.Zero)).Ticks));
+        TimeSpan openDuration = TimeSpan.FromTicks(filteredLogs
+            .Where(log => !log.IsBilled)
+            .Sum(log => (log.Duration ?? (log.StartTime is DateTime startTime && log.EndTime is null
+                ? now - startTime
+                : TimeSpan.Zero)).Ticks));
         string countText = count == 1 ? "1 Eintrag" : $"{count} Einträge";
-        ResultsCountTextBlock.Text = countText;
-        TotalDurationTextBlock.Text = FormatSummaryDuration(totalDuration);
+        CultureInfo german = CultureInfo.GetCultureInfo("de-DE");
+        ResultsSummaryTextBlock.Text =
+            $"{countText}  |  Gesamtzeit: {FormatDuration(totalDuration)} ({totalDuration.TotalHours.ToString("N2", german)} h)" +
+            $"  |  Offen: {FormatDuration(openDuration)}";
+    }
+
+    private static string FormatDuration(TimeSpan duration)
+    {
+        return $"{(int)duration.TotalHours} h {duration.Minutes:00} m";
     }
 
     private void BilledCheckBox_Click(object sender, RoutedEventArgs e)
@@ -154,6 +187,8 @@ public partial class DatenWindow : UserControl
         {
             _dbHelper.UpdateTimeLogBilled(log.Id, checkBox.IsChecked == true);
             log.IsBilled = checkBox.IsChecked == true;
+            _timeLogsView.Refresh();
+            UpdateResultsCount();
         }
         catch (Exception ex)
         {
@@ -169,12 +204,6 @@ public partial class DatenWindow : UserControl
             return;
         }
 
-        if (log.EndTime is null)
-        {
-            ShowError("Eintrag läuft noch", "Laufende Zeiteinträge können erst nach dem Stoppen bearbeitet werden.");
-            return;
-        }
-
         var editor = new EditTimeLogWindow(log)
         {
             Owner = Window.GetWindow(this)
@@ -186,11 +215,25 @@ public partial class DatenWindow : UserControl
 
         try
         {
-            _dbHelper.UpdateTimeLog(log.Id, editor.ClientNumber, editor.StartTime, editor.EndTime, editor.Notes);
-            log.ClientNumber = editor.ClientNumber;
-            log.StartTime = editor.StartTime;
-            log.EndTime = editor.EndTime;
-            log.Notes = editor.Notes;
+            if (editor.IsOpenEntry)
+            {
+                _dbHelper.UpdateOpenTimeLogStartTime(log.Id, editor.StartTime);
+                log.StartTime = editor.StartTime;
+            }
+            else
+            {
+                if (editor.EndTime is not DateTime endTime)
+                {
+                    throw new InvalidOperationException("Bitte geben Sie eine gültige Endzeit an.");
+                }
+
+                _dbHelper.UpdateTimeLog(log.Id, editor.ClientNumber, editor.StartTime, endTime, editor.Notes);
+                log.ClientNumber = editor.ClientNumber;
+                log.StartTime = editor.StartTime;
+                log.EndTime = endTime;
+                log.Notes = editor.Notes;
+            }
+
             _timeLogsView.Refresh();
             UpdateResultsCount();
         }
@@ -256,15 +299,28 @@ public partial class DatenWindow : UserControl
             return;
         }
 
+        var options = new ExportOptionsWindow
+        {
+            Owner = Window.GetWindow(this)
+        };
+        if (options.ShowDialog() != true)
+        {
+            return;
+        }
+
+        bool isXlsx = options.IsXlsx;
+        string extension = isXlsx ? ".xlsx" : ".csv";
+        string filter = isXlsx
+            ? "Excel-Arbeitsmappe (*.xlsx)|*.xlsx"
+            : "CSV-Datei (*.csv)|*.csv";
         var dialog = new SaveFileDialog
         {
             Title = "Zeiteinträge exportieren",
-            Filter = "CSV-Datei (*.csv)|*.csv",
-            DefaultExt = ".csv",
+            Filter = filter,
+            DefaultExt = extension,
             AddExtension = true,
             FileName = $"Zeiteinträge_{DateTime.Now:yyyyMMdd-HHmm}"
         };
-
         if (dialog.ShowDialog(Window.GetWindow(this)) != true)
         {
             return;
@@ -272,19 +328,28 @@ public partial class DatenWindow : UserControl
 
         try
         {
-            var csv = new StringBuilder();
-            csv.AppendLine("Kundennummer;Startzeit;Endzeit;Dauer;Tätigkeit / Notiz;Abgerechnet");
-            foreach (DatabaseHelper.TimeLog log in filteredLogs)
+            if (isXlsx)
             {
-                csv.Append(CsvField(log.ClientNumber ?? string.Empty)).Append(';')
-                    .Append(CsvField(log.StartTime?.ToString("dd.MM.yyyy HH:mm:ss", CultureInfo.GetCultureInfo("de-DE")) ?? string.Empty)).Append(';')
-                    .Append(CsvField(log.EndTime?.ToString("dd.MM.yyyy HH:mm:ss", CultureInfo.GetCultureInfo("de-DE")) ?? string.Empty)).Append(';')
-                    .Append(CsvField(FormatDuration(log.Duration))).Append(';')
-                    .Append(CsvField(log.Notes ?? string.Empty)).Append(';')
-                    .AppendLine(log.IsBilled ? "Ja" : "Nein");
+                ExportToXlsx(dialog.FileName, filteredLogs, options.SeparateCustomers,
+                    options.IncludeSummary, options.UseDecimalHours,
+                    FromDatePicker.SelectedDate, ToDatePicker.SelectedDate);
+            }
+            else if (options.SeparateCustomers)
+            {
+                List<string> exportedFiles = ExportCustomerCsvFiles(
+                    dialog.FileName, filteredLogs, options.UseDecimalHours);
+                ShowError("Export abgeschlossen",
+                    $"{filteredLogs.Count} Einträge wurden in {exportedFiles.Count} Kundendateien exportiert:\n{string.Join("\n", exportedFiles)}",
+                    isError: false);
+                return;
+            }
+            else
+            {
+                File.WriteAllText(dialog.FileName,
+                    BuildCsv(filteredLogs, options.UseDecimalHours),
+                    new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
             }
 
-            File.WriteAllText(dialog.FileName, csv.ToString(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
             ShowError("Export abgeschlossen", $"{filteredLogs.Count} Einträge wurden exportiert.", isError: false);
         }
         catch (Exception ex)
@@ -298,33 +363,435 @@ public partial class DatenWindow : UserControl
         return $"\"{value.Replace("\"", "\"\"")}\"";
     }
 
-    private static string FormatDuration(TimeSpan? duration)
+    private static string BuildCsv(
+        IReadOnlyCollection<DatabaseHelper.TimeLog> logs,
+        bool useDecimalHours)
+    {
+        var csv = new StringBuilder();
+        csv.AppendLine("Kundennummer;Startzeit;Endzeit;Dauer;Tätigkeit / Notiz;Abgerechnet");
+        foreach (DatabaseHelper.TimeLog log in logs)
+        {
+            TimeSpan? duration = GetDuration(log);
+            csv.Append(CsvField(log.ClientNumber ?? string.Empty)).Append(';')
+                .Append(CsvField(FormatDateTime(log.StartTime))).Append(';')
+                .Append(CsvField(FormatDateTime(log.EndTime))).Append(';')
+                .Append(CsvField(FormatExportDuration(duration, useDecimalHours))).Append(';')
+                .Append(CsvField(log.Notes ?? string.Empty)).Append(';')
+                .AppendLine(log.IsBilled ? "Ja" : "Nein");
+        }
+
+        return csv.ToString();
+    }
+
+    private static List<string> ExportCustomerCsvFiles(
+        string selectedPath,
+        IReadOnlyCollection<DatabaseHelper.TimeLog> logs,
+        bool useDecimalHours)
+    {
+        string directory = Path.GetDirectoryName(selectedPath) ?? Environment.CurrentDirectory;
+        string baseName = Path.GetFileNameWithoutExtension(selectedPath);
+        var exports = logs.GroupBy(
+                log => string.IsNullOrWhiteSpace(log.ClientNumber) ? "Ohne Kundennummer" : log.ClientNumber)
+            .Select(group => new
+            {
+                FilePath = Path.Combine(directory, $"{baseName}_Kunde_{MakeSafeFileName(group.Key)}.csv"),
+                Content = BuildCsv(group.ToList(), useDecimalHours)
+            })
+            .ToList();
+
+        string? existingFile = exports.Select(export => export.FilePath).FirstOrDefault(File.Exists);
+        if (existingFile is not null)
+        {
+            throw new IOException($"Die Datei {existingFile} existiert bereits. Bitte wählen Sie einen anderen Dateinamen.");
+        }
+
+        var createdFiles = new List<string>();
+        try
+        {
+            foreach (var export in exports)
+            {
+                using (var stream = new FileStream(export.FilePath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                {
+                    createdFiles.Add(export.FilePath);
+                    using var writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+                    writer.Write(export.Content);
+                }
+            }
+        }
+        catch
+        {
+            foreach (string createdFile in createdFiles)
+            {
+                File.Delete(createdFile);
+            }
+
+            throw;
+        }
+
+        return exports.Select(export => export.FilePath).ToList();
+    }
+
+    private void ExportToXlsx(
+        string path,
+        IReadOnlyCollection<DatabaseHelper.TimeLog> logs,
+        bool separateCustomers,
+        bool includeSummary,
+        bool useDecimalHours,
+        DateTime? fromDate,
+        DateTime? toDate)
+    {
+        using var workbook = new XLWorkbook();
+        var customerGroups = logs.GroupBy(
+                log => string.IsNullOrWhiteSpace(log.ClientNumber) ? "Ohne Kundennummer" : log.ClientNumber)
+            .ToList();
+        var worksheetsByCustomer = new Dictionary<string, (IXLWorksheet Worksheet, int FirstDataRow, int TotalRow)>();
+        var usedSheetNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        IXLWorksheet? summaryWorksheet = includeSummary
+            ? workbook.Worksheets.Add("Abrechnungsübersicht")
+            : null;
+        if (summaryWorksheet is not null)
+        {
+            usedSheetNames.Add(summaryWorksheet.Name);
+        }
+
+        if (separateCustomers)
+        {
+            foreach (IGrouping<string, DatabaseHelper.TimeLog> group in customerGroups)
+            {
+                string sheetName = MakeUniqueSheetName(MakeSafeSheetName(group.Key), usedSheetNames);
+                var worksheet = workbook.Worksheets.Add(sheetName);
+                DatabaseHelper.Customer? customer = GetCustomerForLogs(group);
+                int firstDataRow = 7;
+                int totalRow = WriteWorksheet(
+                    worksheet, group.ToList(), useDecimalHours, customer, includeCustomerHeader: true,
+                    group.Key);
+                worksheetsByCustomer[group.Key] = (worksheet, firstDataRow, totalRow);
+            }
+        }
+        else
+        {
+            bool oneCustomer = customerGroups.Count == 1;
+            DatabaseHelper.Customer? customer = oneCustomer
+                ? GetCustomerForLogs(customerGroups[0])
+                : null;
+            IXLWorksheet worksheet = workbook.Worksheets.Add("Zeiteinträge");
+            int firstDataRow = oneCustomer ? 7 : 2;
+            int totalRow = WriteWorksheet(
+                worksheet, logs, useDecimalHours, customer, includeCustomerHeader: oneCustomer,
+                oneCustomer ? customerGroups[0].Key : null);
+            foreach (IGrouping<string, DatabaseHelper.TimeLog> group in customerGroups)
+            {
+                worksheetsByCustomer[group.Key] = (worksheet, firstDataRow, totalRow);
+            }
+        }
+
+        if (summaryWorksheet is not null)
+        {
+            WriteSummaryWorksheet(summaryWorksheet, logs, customerGroups, worksheetsByCustomer,
+                separateCustomers, useDecimalHours, fromDate, toDate);
+        }
+
+        workbook.SaveAs(path);
+    }
+
+    private DatabaseHelper.Customer? GetCustomerForLogs(IEnumerable<DatabaseHelper.TimeLog> logs)
+    {
+        string? clientNumber = logs.Select(log => log.ClientNumber)
+            .FirstOrDefault(number => !string.IsNullOrWhiteSpace(number));
+        return clientNumber is null ? null : _dbHelper.GetCustomer(clientNumber);
+    }
+
+    private static int WriteWorksheet(
+        IXLWorksheet worksheet,
+        IEnumerable<DatabaseHelper.TimeLog> logs,
+        bool useDecimalHours,
+        DatabaseHelper.Customer? customer,
+        bool includeCustomerHeader,
+        string? clientNumber)
+    {
+        string[] headers = ["Kundennummer", "Startzeit", "Endzeit", "Dauer", "Tätigkeit / Notiz", "Abgerechnet"];
+        int headerRow = includeCustomerHeader ? 6 : 1;
+        if (includeCustomerHeader)
+        {
+            WriteCustomerHeader(worksheet, customer, clientNumber);
+        }
+
+        for (int column = 0; column < headers.Length; column++)
+        {
+            worksheet.Cell(headerRow, column + 1).Value = headers[column];
+        }
+
+        int firstDataRow = headerRow + 1;
+        int row = firstDataRow;
+        foreach (DatabaseHelper.TimeLog log in logs)
+        {
+            worksheet.Cell(row, 1).Value = log.ClientNumber ?? string.Empty;
+            if (log.StartTime is DateTime startTime)
+            {
+                worksheet.Cell(row, 2).Value = startTime;
+                worksheet.Cell(row, 2).Style.DateFormat.Format = "dd.mm.yyyy hh:mm";
+            }
+
+            if (log.EndTime is DateTime endTime)
+            {
+                worksheet.Cell(row, 3).Value = endTime;
+                worksheet.Cell(row, 3).Style.DateFormat.Format = "dd.mm.yyyy hh:mm";
+            }
+
+            TimeSpan? duration = GetDuration(log);
+            if (duration is TimeSpan value)
+            {
+                worksheet.Cell(row, 4).Value = useDecimalHours
+                    ? value.TotalHours
+                    : value.TotalDays;
+                worksheet.Cell(row, 4).Style.NumberFormat.Format = useDecimalHours ? "0.00" : "[h]:mm";
+            }
+
+            worksheet.Cell(row, 5).Value = log.Notes ?? string.Empty;
+            worksheet.Cell(row, 6).Value = log.IsBilled ? "Ja" : "Nein";
+            row++;
+        }
+
+        int lastDataRow = row - 1;
+        int totalRow = row;
+        worksheet.Cell(totalRow, 3).Value = "Gesamt";
+        worksheet.Cell(totalRow, 4).FormulaA1 = lastDataRow >= firstDataRow
+            ? $"=SUM(D{firstDataRow}:D{lastDataRow})"
+            : "=0";
+        worksheet.Cell(totalRow, 4).Style.NumberFormat.Format = useDecimalHours ? "0.00" : "[h]:mm";
+        worksheet.Range(totalRow, 3, totalRow, 4).Style.Font.Bold = true;
+
+        var header = worksheet.Range(headerRow, 1, headerRow, headers.Length);
+        header.Style.Font.Bold = true;
+        header.Style.Fill.BackgroundColor = XLColor.FromHtml("#EAF0F6");
+        worksheet.Range(headerRow, 1, Math.Max(headerRow, lastDataRow), headers.Length).SetAutoFilter();
+        worksheet.SheetView.FreezeRows(headerRow);
+        worksheet.Columns().AdjustToContents();
+        worksheet.Column(5).Width = Math.Min(Math.Max(worksheet.Column(5).Width, 24), 60);
+        worksheet.Column(1).Width = Math.Max(worksheet.Column(1).Width, 16);
+        worksheet.Column(2).Width = Math.Max(worksheet.Column(2).Width, 19);
+        worksheet.Column(3).Width = Math.Max(worksheet.Column(3).Width, 19);
+        worksheet.Column(4).Width = Math.Max(worksheet.Column(4).Width, 14);
+        return totalRow;
+    }
+
+    private static void WriteCustomerHeader(
+        IXLWorksheet worksheet,
+        DatabaseHelper.Customer? customer,
+        string? clientNumber)
+    {
+        if (customer is null)
+        {
+            worksheet.Cell(1, 1).Value = "Kundenstammdaten nicht verfügbar";
+            worksheet.Cell(4, 1).Value = $"Kundennummer: #{clientNumber ?? "unbekannt"}";
+            return;
+        }
+
+        string name = string.IsNullOrWhiteSpace(customer.Company)
+            ? customer.DisplayName
+            : string.IsNullOrWhiteSpace(customer.DisplayName)
+                ? customer.Company
+                : $"{customer.Company} · {customer.DisplayName}";
+        worksheet.Cell(1, 1).Value = string.IsNullOrWhiteSpace(name) ? "Kunde" : name;
+        worksheet.Cell(2, 1).Value = customer.Street;
+        worksheet.Cell(3, 1).Value = string.Join(" ", new[] { customer.PostalCode, customer.City }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+        worksheet.Cell(4, 1).Value = $"Kundennummer: #{customer.ClientNumber}";
+        worksheet.Cell(1, 1).Style.Font.Bold = true;
+        worksheet.Cell(1, 1).Style.Font.FontSize = 14;
+        worksheet.Range(1, 1, 4, 1).Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+    }
+
+    private void WriteSummaryWorksheet(
+        IXLWorksheet worksheet,
+        IReadOnlyCollection<DatabaseHelper.TimeLog> logs,
+        IReadOnlyCollection<IGrouping<string, DatabaseHelper.TimeLog>> customerGroups,
+        IReadOnlyDictionary<string, (IXLWorksheet Worksheet, int FirstDataRow, int TotalRow)> worksheetsByCustomer,
+        bool separateCustomers,
+        bool useDecimalHours,
+        DateTime? fromDate,
+        DateTime? toDate)
+    {
+        DateTime[] startDates = logs.Where(log => log.StartTime.HasValue)
+            .Select(log => log.StartTime!.Value.Date).ToArray();
+        DateTime[] endDates = logs.Select(log => log.EndTime ?? log.StartTime)
+            .Where(value => value.HasValue)
+            .Select(value => value!.Value.Date).ToArray();
+        DateTime? firstDate = startDates.Length == 0 ? null : startDates.Min();
+        DateTime? lastDate = endDates.Length == 0 ? null : endDates.Max();
+
+        worksheet.Cell(1, 1).Value = "Exportdatum";
+        worksheet.Cell(1, 2).Value = DateTime.Now;
+        worksheet.Cell(1, 2).Style.DateFormat.Format = "dd.mm.yyyy hh:mm";
+        worksheet.Cell(2, 1).Value = "Zeitraum";
+        DateTime? periodStart = fromDate?.Date ?? firstDate;
+        DateTime? periodEnd = toDate?.Date ?? lastDate;
+        worksheet.Cell(2, 2).Value = periodStart.HasValue && periodEnd.HasValue
+            ? $"{periodStart.Value:dd.MM.yyyy} - {periodEnd.Value:dd.MM.yyyy}"
+            : "Keine Einträge";
+        worksheet.Cell(3, 1).Value = "Gesamtstunden";
+
+        string[] headers = ["Kundennummer", "Kunde / Firma", "Gesamtstunden (Dezimal)"];
+        for (int column = 0; column < headers.Length; column++)
+        {
+            worksheet.Cell(5, column + 1).Value = headers[column];
+        }
+
+        int row = 6;
+        foreach (IGrouping<string, DatabaseHelper.TimeLog> group in customerGroups)
+        {
+            DatabaseHelper.Customer? customer = string.Equals(group.Key, "Ohne Kundennummer", StringComparison.Ordinal)
+                ? null
+                : _dbHelper.GetCustomer(group.Key);
+
+            worksheet.Cell(row, 1).Value = group.Key;
+            string customerName = customer is null
+                ? string.Empty
+                : string.Join(" · ", new[] { customer.Company, customer.DisplayName }
+                    .Where(value => !string.IsNullOrWhiteSpace(value)));
+            worksheet.Cell(row, 2).Value = string.IsNullOrWhiteSpace(customerName) ? group.Key : customerName;
+
+            (IXLWorksheet detailWorksheet, int firstDataRow, int totalRow) = worksheetsByCustomer[group.Key];
+            string sheetReference = $"'{detailWorksheet.Name.Replace("'", "''")}'";
+            string multiplier = useDecimalHours ? string.Empty : "*24";
+            if (separateCustomers)
+            {
+                worksheet.Cell(row, 3).FormulaA1 = $"={sheetReference}!D{totalRow}{multiplier}";
+            }
+            else
+            {
+                int finalDataRow = totalRow - 1;
+                worksheet.Cell(row, 3).FormulaA1 =
+                    $"=SUMIF({sheetReference}!$A${firstDataRow}:$A${finalDataRow},A{row},{sheetReference}!$D${firstDataRow}:$D${finalDataRow}){multiplier}";
+            }
+
+            worksheet.Cell(row, 3).Style.NumberFormat.Format = "0.00";
+            row++;
+        }
+
+        int lastCustomerRow = row - 1;
+        worksheet.Cell(3, 2).FormulaA1 = lastCustomerRow >= 6
+            ? $"=SUM(C6:C{lastCustomerRow})"
+            : "=0";
+        worksheet.Cell(3, 2).Style.NumberFormat.Format = "0.00";
+        worksheet.Range(5, 1, 5, headers.Length).Style.Font.Bold = true;
+        worksheet.Range(5, 1, 5, headers.Length).Style.Fill.BackgroundColor = XLColor.FromHtml("#EAF0F6");
+        if (lastCustomerRow >= 5)
+        {
+            worksheet.Range(5, 1, lastCustomerRow, headers.Length).SetAutoFilter();
+        }
+
+        worksheet.SheetView.FreezeRows(5);
+        worksheet.Columns().AdjustToContents();
+        worksheet.Column(2).Width = Math.Min(Math.Max(worksheet.Column(2).Width, 24), 60);
+        worksheet.Column(3).Width = Math.Max(worksheet.Column(3).Width, 26);
+    }
+
+
+    private static TimeSpan? GetDuration(DatabaseHelper.TimeLog log)
+    {
+        if (log.Duration is TimeSpan duration)
+        {
+            return duration;
+        }
+
+        return log.StartTime is DateTime startTime && log.EndTime is null
+            ? DateTime.Now - startTime
+            : null;
+    }
+
+    private static string FormatDateTime(DateTime? value)
+    {
+        return value?.ToString("dd.MM.yyyy HH:mm", CultureInfo.GetCultureInfo("de-DE")) ?? string.Empty;
+    }
+
+    private static string FormatExportDuration(TimeSpan? duration, bool useDecimalHours)
     {
         if (duration is not TimeSpan value)
         {
             return string.Empty;
         }
 
-        return $"{(int)value.TotalHours:00}:{value.Minutes:00}:{value.Seconds:00}";
+        return useDecimalHours
+            ? value.TotalHours.ToString("0.00", CultureInfo.GetCultureInfo("de-DE"))
+            : $"{(int)value.TotalHours:00}:{value.Minutes:00}";
     }
 
-    private static string FormatSummaryDuration(TimeSpan duration)
+    private static string MakeSafeSheetName(string name)
     {
-        int days = (int)duration.TotalDays;
-        int hours = duration.Hours;
-        int minutes = duration.Minutes;
-        var parts = new List<string>();
-        if (days > 0)
+        string sanitized = new string(name
+            .Select(character => "[]:*?/\\'".Contains(character) ? '_' : character)
+            .ToArray()).Trim('\'');
+        if (string.IsNullOrWhiteSpace(sanitized))
         {
-            parts.Add($"{days} {(days == 1 ? "Tag" : "Tage")}");
-        }
-        if (hours > 0)
-        {
-            parts.Add($"{hours} Std.");
+            sanitized = "Kunde";
         }
 
-        parts.Add($"{minutes} Min.");
-        return string.Join(" ", parts);
+        return sanitized.Length > 31 ? sanitized[..31] : sanitized;
+    }
+
+    private static string MakeUniqueSheetName(string candidate, ISet<string> usedNames)
+    {
+        string name = candidate;
+        int suffix = 2;
+        while (!usedNames.Add(name))
+        {
+            string suffixText = $" ({suffix++})";
+            int maxBaseLength = 31 - suffixText.Length;
+            name = $"{candidate[..Math.Min(candidate.Length, maxBaseLength)]}{suffixText}";
+        }
+
+        return name;
+    }
+
+    private static string MakeSafeFileName(string name)
+    {
+        char[] invalidCharacters = Path.GetInvalidFileNameChars();
+        string sanitized = new(name.Select(character =>
+            invalidCharacters.Contains(character) ? '_' : character).ToArray());
+        return string.IsNullOrWhiteSpace(sanitized) ? "Unbekannt" : sanitized;
+    }
+
+    private void AddManualEntryButton_Click(object sender, RoutedEventArgs e)
+    {
+        var editor = new EditTimeLogWindow
+        {
+            Owner = Window.GetWindow(this)
+        };
+        if (editor.ShowDialog() != true)
+        {
+            return;
+        }
+
+        try
+        {
+            if (_dbHelper.GetCustomer(editor.ClientNumber) is null)
+            {
+                var customerEditor = new CustomerEditorWindow(requestedClientNumber: editor.ClientNumber)
+                {
+                    Owner = Window.GetWindow(this)
+                };
+                if (customerEditor.ShowDialog() != true)
+                {
+                    return;
+                }
+
+                _dbHelper.SaveCustomer(customerEditor.Customer);
+            }
+
+            if (editor.EndTime is not DateTime endTime)
+            {
+                throw new InvalidOperationException("Bitte geben Sie eine gültige Endzeit an.");
+            }
+
+            _dbHelper.AddManualTimeLog(editor.ClientNumber, editor.StartTime, endTime, editor.Notes);
+            LoadAllTimeLogs();
+        }
+        catch (Exception ex)
+        {
+            ShowError("Eintrag nicht hinzugefügt", ex.Message);
+        }
     }
 
     private void ShowError(string title, string message, bool isError = true)
