@@ -9,13 +9,14 @@
         <SolidColorBrush x:Key="NavyBrush" Color="#20364F"/>
         <SolidColorBrush x:Key="MutedBrush" Color="#667085"/>
         <Style TargetType="DataGridColumnHeader">
-            <Setter Property="Background" Value="#F7F9FB"/>
-            <Setter Property="Foreground" Value="#475467"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Background" Value="#E9EDF1"/>
+            <Setter Property="Foreground" Value="#20364F"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="Padding" Value="14,10"/>
             <Setter Property="HorizontalContentAlignment" Value="Left"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="BorderBrush" Value="#EAECF0"/>
+            <Setter Property="BorderBrush" Value="#D0D5DD"/>
             <Setter Property="BorderThickness" Value="0,0,0,1"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -118,24 +119,17 @@
 
         <Border Grid.Row="2" Background="White" CornerRadius="12"
                 BorderBrush="#D0D5DD" BorderThickness="1" ClipToBounds="True">
-          <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="30"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
-            <Border Background="#F2F4F7" Padding="16,0">
-                <TextBlock Text="ERGEBNISSE" FontSize="12" FontWeight="SemiBold"
-                           Foreground="#475467" VerticalAlignment="Center"/>
-            </Border>
-            <DataGrid x:Name="CustomersDataGrid" Grid.Row="1"
+            <DataGrid x:Name="CustomersDataGrid" Margin="1"
                       AutoGenerateColumns="False" CanUserAddRows="False"
                       CanUserDeleteRows="False" IsReadOnly="True"
                       HeadersVisibility="Column" GridLinesVisibility="None"
                       RowHeaderWidth="0" Background="White"
                       BorderThickness="0" SelectionMode="Single"
                       AlternationCount="2"
+                      FontSize="13"
                       HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto"
+                      LostKeyboardFocus="CustomersDataGrid_LostKeyboardFocus"
                       MouseDoubleClick="CustomersDataGrid_MouseDoubleClick">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Kundennummer" Binding="{Binding ClientNumber}"
@@ -191,7 +185,6 @@
                     </DataGridTemplateColumn>
                 </DataGrid.Columns>
             </DataGrid>
-          </Grid>
         </Border>
     </Grid>
 </UserControl>

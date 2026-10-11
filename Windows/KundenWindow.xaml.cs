@@ -93,6 +93,14 @@ public partial class KundenWindow : UserControl
         }
     }
 
+    private void CustomersDataGrid_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (!CustomersDataGrid.IsKeyboardFocusWithin)
+        {
+            CustomersDataGrid.SelectedItem = null;
+        }
+    }
+
     private void DeleteCustomerButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button button || button.DataContext is not DatabaseHelper.Customer customer)
