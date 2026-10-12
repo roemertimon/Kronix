@@ -7,7 +7,7 @@
         ShowInTaskbar="False" ShowActivated="False"
         Topmost="True" WindowStartupLocation="Manual"
         UseLayoutRounding="True">
-    <Border Background="White" CornerRadius="12" Padding="0"
+    <Border Background="White" CornerRadius="0" Padding="0"
             BorderBrush="#E4EAF0" BorderThickness="1">
         <Border.Effect>
             <DropShadowEffect Color="#20364F" BlurRadius="22" ShadowDepth="4" Opacity="0.2"/>
@@ -17,8 +17,7 @@
                 <ColumnDefinition Width="4"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-            <Border x:Name="AccentBorder" Grid.Column="0" Background="#087F5B"
-                    CornerRadius="12,0,0,12"/>
+            <Border x:Name="AccentBorder" Grid.Column="0" Background="#087F5B"/>
             <Grid Grid.Column="1" Margin="16,14,12,15">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="36"/>
