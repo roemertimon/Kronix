@@ -163,20 +163,18 @@ public partial class DatenWindow : UserControl
         return $"{(int)duration.TotalHours} h {duration.Minutes:00} m";
     }
 
-    private void BilledCheckBox_Click(object sender, RoutedEventArgs e)
+    private void BilledPillButton_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not CheckBox checkBox || checkBox.DataContext is not DatabaseHelper.TimeLog log)
+        if (sender is not Button button || button.DataContext is not DatabaseHelper.TimeLog log)
         {
             return;
         }
 
-        bool isBilled = checkBox.IsChecked == true;
-        bool previousIsBilled = !isBilled;
+        bool previousIsBilled = log.IsBilled;
+        bool isBilled = !previousIsBilled;
         if (!DataGridRecords.CommitEdit(DataGridEditingUnit.Cell, true) ||
             !DataGridRecords.CommitEdit(DataGridEditingUnit.Row, true))
         {
-            log.IsBilled = previousIsBilled;
-            checkBox.IsChecked = previousIsBilled;
             AppLogger.Warning("timelog.billing_edit_not_committed",
                 "The billed state could not be changed because the grid edit could not be committed.");
             ShowError("Abrechnung nicht geändert",
@@ -196,18 +194,82 @@ public partial class DatenWindow : UserControl
         catch (Exception ex)
         {
             log.IsBilled = previousIsBilled;
-            checkBox.IsChecked = previousIsBilled;
             AppLogger.Error("timelog.billing_update_failed",
                 "Could not update the billed state of a time entry.", ex);
             ShowError("Abrechnung nicht gespeichert", ex.Message);
         }
     }
 
-    private void DataGridRecords_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    private void DataGridRecords_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (!DataGridRecords.IsKeyboardFocusWithin)
+        int selectedCount = DataGridRecords.SelectedItems.Count;
+        Visibility bulkActionVisibility = selectedCount > 1
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        RemoveSelectedButton.Visibility = bulkActionVisibility;
+        MarkSelectedBilledButton.Visibility = bulkActionVisibility;
+        MarkSelectedUnbilledButton.Visibility = bulkActionVisibility;
+        RemoveSelectedButton.Content = selectedCount > 0
+            ? $"Entfernen ({selectedCount})"
+            : "Entfernen";
+    }
+
+    private void SetSelectedBilledButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button button || button.Tag is not string value ||
+            !bool.TryParse(value, out bool isBilled))
         {
-            DataGridRecords.SelectedItem = null;
+            return;
+        }
+
+        List<DatabaseHelper.TimeLog> selectedLogs = DataGridRecords.SelectedItems
+            .Cast<DatabaseHelper.TimeLog>()
+            .ToList();
+        if (selectedLogs.Count < 2)
+        {
+            return;
+        }
+
+        try
+        {
+            _dbHelper.UpdateTimeLogsBilled(selectedLogs.Select(log => log.Id), isBilled);
+            foreach (DatabaseHelper.TimeLog log in selectedLogs)
+            {
+                log.IsBilled = isBilled;
+            }
+
+            _timeLogsView.Refresh();
+            UpdateResultsCount();
+            AppLogger.Information("timelog.bulk_billing_changed",
+                $"Set {selectedLogs.Count} selected time entries to billed={isBilled}.");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("timelog.bulk_billing_change_failed",
+                "Could not update billed status for selected time entries.", ex);
+            ShowError("Abrechnung nicht geändert", ex.Message);
+        }
+        finally
+        {
+            DataGridRecords.Focus();
+        }
+    }
+
+    private void DataGridRecords_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Delete && DataGridRecords.SelectedItems.Count > 0)
+        {
+            e.Handled = true;
+            DeleteSelectedTimeLogs();
+            return;
+        }
+
+        if (e.Key == Key.E && Keyboard.Modifiers == ModifierKeys.None &&
+            DataGridRecords.SelectedItems.Count == 1 &&
+            DataGridRecords.SelectedItem is DatabaseHelper.TimeLog selectedLog)
+        {
+            e.Handled = true;
+            EditTimeLog(selectedLog);
         }
     }
 
@@ -218,6 +280,11 @@ public partial class DatenWindow : UserControl
             return;
         }
 
+        EditTimeLog(log);
+    }
+
+    private void EditTimeLog(DatabaseHelper.TimeLog log)
+    {
         var editor = new EditTimeLogWindow(log)
         {
             Owner = Window.GetWindow(this)
@@ -299,6 +366,58 @@ public partial class DatenWindow : UserControl
         {
             AppLogger.Error("timelog.delete_failed", "Could not delete a time entry.", ex);
             ShowError("Eintrag nicht gelöscht", ex.Message);
+        }
+    }
+
+    private void RemoveSelectedButton_Click(object sender, RoutedEventArgs e)
+    {
+        DeleteSelectedTimeLogs();
+    }
+
+    private void DeleteSelectedTimeLogs()
+    {
+        List<DatabaseHelper.TimeLog> selectedLogs = DataGridRecords.SelectedItems
+            .Cast<DatabaseHelper.TimeLog>()
+            .ToList();
+        if (selectedLogs.Count == 0)
+        {
+            return;
+        }
+
+        if (selectedLogs.Any(log => log.EndTime is null))
+        {
+            ShowError("Laufende Einträge ausgewählt",
+                "Laufende Zeiterfassungen können nicht entfernt werden. Bitte wählen Sie nur abgeschlossene Zeiteinträge aus.");
+            return;
+        }
+
+        var confirmation = new DeleteConfirmationWindow(selectedLogs)
+        {
+            Owner = Window.GetWindow(this)
+        };
+        if (confirmation.ShowDialog() != true)
+        {
+            return;
+        }
+
+        try
+        {
+            _dbHelper.DeleteTimeLogs(selectedLogs.Select(log => log.Id).ToArray());
+            foreach (DatabaseHelper.TimeLog log in selectedLogs)
+            {
+                _timeLogs.Remove(log);
+            }
+
+            _timeLogsView.Refresh();
+            UpdateResultsCount();
+            AppLogger.Information("timelog.bulk_deleted",
+                $"Deleted {selectedLogs.Count} selected time entries.");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("timelog.bulk_delete_failed",
+                "Could not delete selected time entries.", ex);
+            ShowError("Einträge nicht gelöscht", ex.Message);
         }
     }
 

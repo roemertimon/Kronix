@@ -33,9 +33,9 @@
                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Border>
                 <StackPanel Grid.Column="1" Margin="12,1,0,0">
-                    <TextBlock Text="Eintrag löschen?" FontSize="21" FontWeight="SemiBold"
+                    <TextBlock x:Name="TitleTextBlock" Text="Eintrag löschen?" FontSize="21" FontWeight="SemiBold"
                                Foreground="#1D2939"/>
-                    <TextBlock Text="Möchten Sie diesen Zeiteintrag wirklich entfernen?"
+                    <TextBlock x:Name="DescriptionTextBlock" Text="Möchten Sie diesen Zeiteintrag wirklich entfernen?"
                                FontSize="14" Foreground="#667085" TextWrapping="Wrap"
                                Margin="0,6,0,0"/>
                 </StackPanel>
@@ -48,13 +48,23 @@
                         Click="CancelButton_Click"/>
             </Grid>
 
-            <Border Grid.Row="1" Background="#F7F8FA" CornerRadius="8"
+            <Border x:Name="EntryDetailsBorder" Grid.Row="1" Background="#F7F8FA" CornerRadius="8"
                     Padding="14,11" Margin="0,22,0,0">
                 <StackPanel>
                     <TextBlock x:Name="ClientTextBlock" FontSize="14"
                                FontWeight="SemiBold" Foreground="#344054"/>
                     <TextBlock x:Name="StartTimeTextBlock" FontSize="13"
                                Foreground="#667085" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+            <Border x:Name="BulkCountBorder" Grid.Row="1" Background="#FFF1F0" CornerRadius="8"
+                    Padding="14,11" Margin="0,22,0,0" Visibility="Collapsed">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock x:Name="SelectedCountTextBlock" FontSize="23"
+                               FontWeight="Bold" Foreground="#B42318"/>
+                    <TextBlock Text="ausgewählte Zeiteinträge werden gelöscht"
+                               FontSize="14" Foreground="#344054"
+                               VerticalAlignment="Center" Margin="10,0,0,0"/>
                 </StackPanel>
             </Border>
 
@@ -68,7 +78,7 @@
                         BorderBrush="#D0D5DD" BorderThickness="1"
                         FontSize="14" FontWeight="SemiBold" Margin="0,0,10,0"
                         Click="CancelButton_Click"/>
-                <Button Content="Eintrag löschen" Width="132" Height="40"
+                <Button x:Name="DeleteActionButton" Content="Eintrag löschen" Width="132" Height="40"
                         Background="#B42318" Foreground="White"
                         BorderThickness="0" FontSize="14" FontWeight="SemiBold"
                         Click="DeleteButton_Click"/>

@@ -46,6 +46,16 @@
                     <Setter Property="Background" Value="#EAF6F0"/>
                     <Setter Property="BorderBrush" Value="#B9E3CE"/>
                 </DataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource Self}}"
+                                   Value="True"/>
+                        <Condition Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                   Value="True"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="#E8EEF3"/>
+                    <Setter Property="BorderBrush" Value="#C7D2DC"/>
+                </MultiDataTrigger>
             </Style.Triggers>
         </Style>
         <Style TargetType="DataGridCell">
@@ -64,6 +74,18 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+            <Style.Triggers>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource Self}}"
+                                   Value="True"/>
+                        <Condition Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                   Value="True"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="#DCE6EF"/>
+                    <Setter Property="Foreground" Value="#20364F"/>
+                </MultiDataTrigger>
+            </Style.Triggers>
         </Style>
         <Style x:Key="ActionIconButtonStyle" TargetType="Button">
             <Setter Property="Width" Value="32"/>
@@ -115,9 +137,9 @@
         <Style x:Key="FilterResetButton" TargetType="Button">
             <Setter Property="Height" Value="38"/>
             <Setter Property="Padding" Value="13,0"/>
-            <Setter Property="Background" Value="#D5E5F1"/>
+            <Setter Property="Background" Value="#F2F4F7"/>
             <Setter Property="Foreground" Value="{StaticResource NavyBrush}"/>
-            <Setter Property="BorderBrush" Value="#AFC6D8"/>
+            <Setter Property="BorderBrush" Value="#D0D5DD"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
@@ -135,15 +157,108 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="#C6DBE9"/>
-                                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="#8FAEC5"/>
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#E4E7EC"/>
+                                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="#BFC6D0"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="#B5CCDD"/>
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#D0D5DD"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.55"/>
                             </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="ExportActionButtonStyle" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ActionBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="0"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ActionBorder" Property="Background" Value="#2D4A68"/>
+                                <Setter TargetName="ActionBorder" Property="BorderBrush" Value="#2D4A68"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ActionBorder" Property="Background" Value="#182A3D"/>
+                                <Setter TargetName="ActionBorder" Property="BorderBrush" Value="#182A3D"/>
+                                <Setter TargetName="ActionBorder" Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ActionBorder" Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="AddEntryButtonStyle" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ActionBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ActionBorder" Property="Background" Value="#F2F4F7"/>
+                                <Setter TargetName="ActionBorder" Property="BorderBrush" Value="#D0D5DD"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ActionBorder" Property="Background" Value="#E4E7EC"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ActionBorder" Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="BillingPillButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="68"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="#E4E7EC"/>
+            <Setter Property="Foreground" Value="#475467"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="PillBorder" Background="{TemplateBinding Background}"
+                                CornerRadius="13" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="PillBorder" Property="Opacity" Value="0.82"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="PillBorder" Property="Opacity" Value="0.68"/>
+                            </Trigger>
+                            <DataTrigger Binding="{Binding IsBilled}" Value="True">
+                                <Setter Property="Background" Value="#DDF3E4"/>
+                                <Setter Property="Foreground" Value="#267344"/>
+                            </DataTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -205,15 +320,41 @@
                            FontSize="13" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0"/>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button x:Name="MarkSelectedBilledButton" Content="Alle abgerechnet"
+                        Height="40" Padding="12,0" Margin="0,0,8,0"
+                        Background="#DDF3E4" Foreground="#267344"
+                        BorderBrush="#B7E4C7" BorderThickness="1"
+                        FontSize="13" FontWeight="SemiBold"
+                        Style="{StaticResource AddEntryButtonStyle}"
+                        Visibility="Collapsed" Tag="True"
+                        Click="SetSelectedBilledButton_Click"/>
+                <Button x:Name="MarkSelectedUnbilledButton" Content="Alle nicht abgerechnet"
+                        Height="40" Padding="12,0" Margin="0,0,10,0"
+                        Background="#E4E7EC" Foreground="#475467"
+                        BorderBrush="#D0D5DD" BorderThickness="1"
+                        FontSize="13" FontWeight="SemiBold"
+                        Style="{StaticResource AddEntryButtonStyle}"
+                        Visibility="Collapsed" Tag="False"
+                        Click="SetSelectedBilledButton_Click"/>
+                <Button x:Name="RemoveSelectedButton" Content="Entfernen"
+                        Height="40" Padding="14,0" Margin="0,0,10,0"
+                        Background="#FFF1F0" Foreground="#B42318"
+                        BorderBrush="#FDA29B" BorderThickness="1"
+                        FontSize="14" FontWeight="SemiBold"
+                        Visibility="Collapsed" Click="RemoveSelectedButton_Click">
+                    <Button.ToolTip>Markierte Zeiteinträge entfernen (Entf)</Button.ToolTip>
+                </Button>
                 <Button Content="+ Neuer Eintrag"
                         Height="40" Padding="16,0" Margin="0,0,10,0"
                         Background="White" Foreground="{StaticResource NavyBrush}"
                         BorderBrush="#D0D5DD" BorderThickness="1"
                         FontSize="14" FontWeight="SemiBold"
+                        Style="{StaticResource AddEntryButtonStyle}"
                         Click="AddManualEntryButton_Click"/>
                 <Button x:Name="ExportButton" Height="40" Padding="16,0"
                         Background="{StaticResource NavyBrush}" Foreground="White"
                         BorderThickness="0" FontSize="14" FontWeight="SemiBold"
+                        Style="{StaticResource ExportActionButtonStyle}"
                         Click="ExportButton_Click">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="Exportieren"/>
@@ -310,12 +451,15 @@
                   FontSize="13"
                   Background="White"
                   BorderThickness="0"
+                  SelectionMode="Extended"
+                  SelectionUnit="FullRow"
                   VerticalScrollBarVisibility="Auto"
                   HorizontalScrollBarVisibility="Disabled"
-                  LostKeyboardFocus="DataGridRecords_LostKeyboardFocus">
+                  SelectionChanged="DataGridRecords_SelectionChanged"
+                  PreviewKeyDown="DataGridRecords_PreviewKeyDown">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Kunde / Nummer" Binding="{Binding ClientNumber}"
-                                    Width="1.1*" MinWidth="105" IsReadOnly="True"
+                <DataGridTextColumn Header="Kundennummer" Binding="{Binding ClientNumber}"
+                                    Width="Auto" MinWidth="125" IsReadOnly="True"
                                     ElementStyle="{StaticResource CustomerCellText}"/>
                 <DataGridTextColumn Header="Datum"
                                     Binding="{Binding StartTime, StringFormat={}{0:dd.MM.yyyy}}"
@@ -357,10 +501,46 @@
                 <DataGridTemplateColumn Header="Abgerechnet" Width="0.95*" MinWidth="105">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <CheckBox IsChecked="{Binding IsBilled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                      VerticalAlignment="Center"
-                                      HorizontalAlignment="Center"
-                                      Click="BilledCheckBox_Click"/>
+                            <Button Style="{StaticResource BillingPillButtonStyle}"
+                                    HorizontalAlignment="Center"
+                                    Click="BilledPillButton_Click"
+                                    AutomationProperties.Name="Abrechnung ändern">
+                                <Grid>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsBilled}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets"
+                                                   FontSize="9" Margin="0,0,4,0"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock Text="Ja" FontSize="11" FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsBilled}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <TextBlock Text="&#xECCA;" FontFamily="Segoe MDL2 Assets"
+                                                   FontSize="9" Margin="0,0,4,0"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock Text="Nein" FontSize="11" FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Button>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
@@ -369,7 +549,7 @@
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                                 <Button Style="{StaticResource ActionIconButtonStyle}"
-                                        ToolTip="Eintrag bearbeiten"
+                                        ToolTip="Eintrag bearbeiten (E bei Auswahl)"
                                         AutomationProperties.Name="Eintrag bearbeiten"
                                         Click="EditButton_Click">
                                     <TextBlock Text="&#xE70F;" FontFamily="Segoe MDL2 Assets"
@@ -377,7 +557,7 @@
                                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Button>
                                 <Button Style="{StaticResource ActionIconButtonStyle}"
-                                        ToolTip="Eintrag löschen"
+                                        ToolTip="Eintrag löschen (Entf bei Auswahl)"
                                         AutomationProperties.Name="Eintrag löschen"
                                         Click="DeleteButton_Click">
                                     <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets"
