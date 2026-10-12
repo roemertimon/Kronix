@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using Kronix.Database;
 using Kronix.Logging;
@@ -28,14 +29,22 @@ public partial class EditTimeLogWindow : Window
             SubtitleTextBlock.Text = "Ergänzen Sie Kundennummer, Arbeitszeit und Tätigkeit.";
             DateTime now = DateTime.Now;
             DateTime roundedNow = new(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0);
-            StartTimeTextBox.Text = roundedNow.AddMinutes(-5).ToString("dd.MM.yyyy HH:mm");
-            EndTimeTextBox.Text = roundedNow.ToString("dd.MM.yyyy HH:mm");
+            SetDateTime(StartDatePicker, StartTimeTextBox, roundedNow.AddMinutes(-5));
+            SetDateTime(EndDatePicker, EndTimeTextBox, roundedNow);
             return;
         }
 
         ClientNumberTextBox.Text = timeLog.ClientNumber;
-        StartTimeTextBox.Text = timeLog.StartTime?.ToString("dd.MM.yyyy HH:mm") ?? string.Empty;
-        EndTimeTextBox.Text = timeLog.EndTime?.ToString("dd.MM.yyyy HH:mm") ?? string.Empty;
+        if (timeLog.StartTime is DateTime startTime)
+        {
+            SetDateTime(StartDatePicker, StartTimeTextBox, startTime);
+        }
+
+        if (timeLog.EndTime is DateTime endTime)
+        {
+            SetDateTime(EndDatePicker, EndTimeTextBox, endTime);
+        }
+
         NotesTextBox.Text = timeLog.Notes ?? string.Empty;
         if (timeLog.EndTime is null)
         {
@@ -61,10 +70,9 @@ public partial class EditTimeLogWindow : Window
             return;
         }
 
-        if (!DateTime.TryParseExact(StartTimeTextBox.Text.Trim(), "dd.MM.yyyy HH:mm",
-                CultureInfo.GetCultureInfo("de-DE"), DateTimeStyles.None, out DateTime startTime))
+        if (!TryGetDateTime(StartDatePicker, StartTimeTextBox, out DateTime startTime))
         {
-            ShowValidationError("Bitte geben Sie eine gültige Startzeit im Format TT.MM.JJJJ HH:MM ein.");
+            ShowValidationError("Bitte geben Sie ein gültiges Startdatum und eine Uhrzeit im Format HH:mm ein.");
             return;
         }
 
@@ -83,10 +91,9 @@ public partial class EditTimeLogWindow : Window
             return;
         }
 
-        if (!DateTime.TryParseExact(EndTimeTextBox.Text.Trim(), "dd.MM.yyyy HH:mm",
-                CultureInfo.GetCultureInfo("de-DE"), DateTimeStyles.None, out DateTime endTime))
+        if (!TryGetDateTime(EndDatePicker, EndTimeTextBox, out DateTime endTime))
         {
-            ShowValidationError("Bitte geben Sie eine gültige Endzeit im Format TT.MM.JJJJ HH:MM ein.");
+            ShowValidationError("Bitte geben Sie ein gültiges Enddatum und eine Uhrzeit im Format HH:mm ein.");
             return;
         }
 
@@ -123,17 +130,15 @@ public partial class EditTimeLogWindow : Window
 
     private void RoundEndTimeButton_Click(object sender, RoutedEventArgs e)
     {
-        if (!DateTime.TryParseExact(StartTimeTextBox.Text.Trim(), "dd.MM.yyyy HH:mm",
-                CultureInfo.GetCultureInfo("de-DE"), DateTimeStyles.None, out DateTime startTime))
+        if (!TryGetDateTime(StartDatePicker, StartTimeTextBox, out DateTime startTime))
         {
-            ShowValidationError("Bitte geben Sie zuerst eine gültige Startzeit ein.");
+            ShowValidationError("Bitte geben Sie zuerst ein gültiges Startdatum und eine Uhrzeit im Format HH:mm ein.");
             return;
         }
 
-        if (!DateTime.TryParseExact(EndTimeTextBox.Text.Trim(), "dd.MM.yyyy HH:mm",
-                CultureInfo.GetCultureInfo("de-DE"), DateTimeStyles.None, out DateTime endTime))
+        if (!TryGetDateTime(EndDatePicker, EndTimeTextBox, out DateTime endTime))
         {
-            ShowValidationError("Bitte geben Sie zuerst eine gültige Endzeit ein.");
+            ShowValidationError("Bitte geben Sie zuerst ein gültiges Enddatum und eine Uhrzeit im Format HH:mm ein.");
             return;
         }
 
@@ -145,9 +150,43 @@ public partial class EditTimeLogWindow : Window
 
         double elapsedMinutes = (endTime - startTime).TotalMinutes;
         int roundedIntervals = Math.Max(1, (int)Math.Ceiling(elapsedMinutes / 5));
-        EndTimeTextBox.Text = startTime.AddMinutes(roundedIntervals * 5)
-            .ToString("dd.MM.yyyy HH:mm", CultureInfo.GetCultureInfo("de-DE"));
+        SetDateTime(EndDatePicker, EndTimeTextBox,
+            startTime.AddMinutes(roundedIntervals * 5));
         ErrorTextBlock.Visibility = Visibility.Collapsed;
+    }
+
+    private void RoundStartTimeButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!TryGetDateTime(StartDatePicker, StartTimeTextBox, out DateTime startTime))
+        {
+            ShowValidationError("Bitte geben Sie zuerst ein gültiges Startdatum und eine Uhrzeit im Format HH:mm ein.");
+            return;
+        }
+
+        int minutesToAdd = (5 - startTime.Minute % 5) % 5;
+        SetDateTime(StartDatePicker, StartTimeTextBox, startTime.AddMinutes(minutesToAdd));
+        ErrorTextBlock.Visibility = Visibility.Collapsed;
+    }
+
+    private static bool TryGetDateTime(DatePicker datePicker, TextBox timeTextBox,
+        out DateTime value)
+    {
+        value = default;
+        if (datePicker.SelectedDate is not DateTime date ||
+            !DateTime.TryParseExact(timeTextBox.Text.Trim(), "HH:mm",
+                CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime time))
+        {
+            return false;
+        }
+
+        value = date.Date.Add(time.TimeOfDay);
+        return true;
+    }
+
+    private static void SetDateTime(DatePicker datePicker, TextBox timeTextBox, DateTime value)
+    {
+        datePicker.SelectedDate = value.Date;
+        timeTextBox.Text = value.ToString("HH:mm", CultureInfo.InvariantCulture);
     }
 
     private void CancelButton_Click(object sender, RoutedEventArgs e)

@@ -7,6 +7,53 @@
         Background="Transparent" ResizeMode="NoResize"
         ShowInTaskbar="False" WindowStartupLocation="CenterOwner"
         UseLayoutRounding="True">
+    <Window.Resources>
+        <Style x:Key="EditorDatePickerStyle" TargetType="DatePicker">
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Language" Value="de-DE"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="#344054"/>
+            <Setter Property="BorderBrush" Value="#D0D5DD"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style TargetType="{x:Type DatePickerTextBox}">
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Language" Value="de-DE"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#344054"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type DatePickerTextBox}">
+                        <Grid>
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Center"/>
+                            <TextBlock x:Name="PART_Watermark"
+                                       Text="Datum eingeben"
+                                       Margin="9,0,0,0"
+                                       VerticalAlignment="Center"
+                                       Foreground="#98A2B3"
+                                       IsHitTestVisible="False"
+                                       Visibility="Collapsed"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <DataTrigger Binding="{Binding Text, RelativeSource={RelativeSource TemplatedParent}}"
+                                         Value="">
+                                <Setter TargetName="PART_Watermark" Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="PART_Watermark" Property="Visibility" Value="Collapsed"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
     <Border Background="White" CornerRadius="16" Padding="28"
             BorderBrush="#E5EAF0" BorderThickness="1">
         <Border.Effect>
@@ -32,29 +79,63 @@
                 <TextBox x:Name="ClientNumberTextBox" Height="40" Padding="11,0"
                          VerticalContentAlignment="Center" FontSize="15"
                          BorderBrush="#D0D5DD" BorderThickness="1"/>
-                <TextBlock Text="Startzeit (TT.MM.JJJJ HH:MM)" FontSize="13"
-                           FontWeight="SemiBold" Foreground="#344054"
-                           Margin="0,15,0,6"/>
-                <TextBox x:Name="StartTimeTextBox" Height="40" Padding="11,0"
-                         VerticalContentAlignment="Center" FontSize="15"
-                         BorderBrush="#D0D5DD" BorderThickness="1"/>
+                <TextBlock Text="Start" FontSize="13" FontWeight="SemiBold"
+                           Foreground="#344054" Margin="0,15,0,6"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.15*"/>
+                        <ColumnDefinition Width="10"/>
+                        <ColumnDefinition Width="0.85*"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="123"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="Datum" FontSize="11" Foreground="#667085" Margin="0,0,0,4"/>
+                        <DatePicker x:Name="StartDatePicker" Style="{StaticResource EditorDatePickerStyle}"
+                                    SelectedDateFormat="Short"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Uhrzeit" FontSize="11" Foreground="#667085" Margin="0,0,0,4"/>
+                        <TextBox x:Name="StartTimeTextBox" Height="40" Padding="11,0"
+                                 VerticalContentAlignment="Center" FontSize="15"
+                                 BorderBrush="#D0D5DD" BorderThickness="1"
+                                 ToolTip="Uhrzeit im Format HH:mm"/>
+                    </StackPanel>
+                    <Button Grid.Column="4" Content="Auf 5 Min. runden"
+                            Height="40" Padding="8,0"
+                            Background="#E9EEF4" Foreground="#20364F"
+                            BorderThickness="0" FontSize="12" FontWeight="SemiBold"
+                            VerticalAlignment="Bottom"
+                            Click="RoundStartTimeButton_Click"/>
+                </Grid>
                 <StackPanel x:Name="EndTimeSection" Margin="0,15,0,0">
-                    <TextBlock Text="Endzeit (TT.MM.JJJJ HH:MM)" FontSize="13"
-                               FontWeight="SemiBold" Foreground="#344054"
-                               Margin="0,0,0,6"/>
+                    <TextBlock Text="Ende" FontSize="13" FontWeight="SemiBold"
+                               Foreground="#344054" Margin="0,0,0,6"/>
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="1.15*"/>
                             <ColumnDefinition Width="10"/>
-                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="0.85*"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="123"/>
                         </Grid.ColumnDefinitions>
-                        <TextBox x:Name="EndTimeTextBox" Height="40" Padding="11,0"
-                                 VerticalContentAlignment="Center" FontSize="15"
-                                 BorderBrush="#D0D5DD" BorderThickness="1"/>
-                        <Button Grid.Column="2" Content="Auf 5 Min. runden"
-                                Height="40" Padding="12,0"
+                        <StackPanel>
+                            <TextBlock Text="Datum" FontSize="11" Foreground="#667085" Margin="0,0,0,4"/>
+                            <DatePicker x:Name="EndDatePicker" Style="{StaticResource EditorDatePickerStyle}"
+                                        SelectedDateFormat="Short"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Uhrzeit" FontSize="11" Foreground="#667085" Margin="0,0,0,4"/>
+                            <TextBox x:Name="EndTimeTextBox" Height="40" Padding="11,0"
+                                     VerticalContentAlignment="Center" FontSize="15"
+                                     BorderBrush="#D0D5DD" BorderThickness="1"
+                                     ToolTip="Uhrzeit im Format HH:mm"/>
+                        </StackPanel>
+                        <Button Grid.Column="4" Content="Auf 5 Min. runden"
+                                Height="40" Padding="8,0"
                                 Background="#E9EEF4" Foreground="#20364F"
-                                BorderThickness="0" FontSize="13" FontWeight="SemiBold"
+                                BorderThickness="0" FontSize="12" FontWeight="SemiBold"
+                                VerticalAlignment="Bottom"
                                 Click="RoundEndTimeButton_Click"/>
                     </Grid>
                 </StackPanel>
