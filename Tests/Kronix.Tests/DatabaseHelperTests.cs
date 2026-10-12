@@ -60,6 +60,30 @@ public sealed class DatabaseHelperTests : IDisposable
     }
 
     [Fact]
+    public void TwoWorkstations_ShareDatabaseButKeepOwnEmployeeAndTimers()
+    {
+        _database.SaveEmployee(
+            new DatabaseHelper.Employee { EmployeeNumber = "E2", FirstName = "Second", LastName = "Person" });
+        DateTime start = DateTime.Today.AddHours(8);
+        int firstLog = _database.StartTimeLog("1001", start, "PC1", TestEmployee);
+
+        string otherDirectory = Path.Combine(_directory, "pc2");
+        Directory.CreateDirectory(otherDirectory);
+        File.WriteAllText(Path.Combine(otherDirectory, "database-path.txt"), _database.DatabasePath);
+        var pc2 = new DatabaseHelper(databasePathSettingPath: Path.Combine(otherDirectory, "database-path.txt"));
+        pc2.SetCurrentEmployeeNumber("E2");
+        int secondLog = pc2.StartTimeLog("1001", start, "PC2", "E2");
+
+        Assert.Equal(TestEmployee, _database.GetCurrentEmployeeNumber());
+        Assert.Equal("E2", pc2.GetCurrentEmployeeNumber());
+        Assert.Equal(firstLog, _database.GetOpenTimeLog()!.Id);
+        Assert.Equal(secondLog, pc2.GetOpenTimeLog()!.Id);
+
+        Assert.Equal(1, pc2.CloseOpenTimeLogs(DateTime.Now));
+        Assert.NotNull(_database.GetOpenTimeLog());
+    }
+
+    [Fact]
     public void BundledSeedDatabase_IsMigratedByStartup()
     {
         string seedPath = Path.Combine(AppContext.BaseDirectory, "Resources", "kundenDaten.sqlite");
