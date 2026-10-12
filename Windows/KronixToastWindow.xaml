@@ -1,0 +1,55 @@
+<Window x:Class="Kronix.Windows.KronixToastWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="380" SizeToContent="Height"
+        WindowStyle="None" AllowsTransparency="True"
+        Background="Transparent" ResizeMode="NoResize"
+        ShowInTaskbar="False" ShowActivated="False"
+        Topmost="True" WindowStartupLocation="Manual"
+        UseLayoutRounding="True">
+    <Border Background="White" CornerRadius="12" Padding="0"
+            BorderBrush="#E4EAF0" BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect Color="#20364F" BlurRadius="22" ShadowDepth="4" Opacity="0.2"/>
+        </Border.Effect>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="4"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Border x:Name="AccentBorder" Grid.Column="0" Background="#087F5B"
+                    CornerRadius="12,0,0,12"/>
+            <Grid Grid.Column="1" Margin="16,14,12,15">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="36"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="24"/>
+                </Grid.ColumnDefinitions>
+                <Border x:Name="IconBorder" Width="30" Height="30"
+                        HorizontalAlignment="Left" VerticalAlignment="Top"
+                        CornerRadius="15" Background="#E7F4EE">
+                    <TextBlock x:Name="IconTextBlock" Text="&#xE73E;"
+                               FontFamily="Segoe MDL2 Assets" FontSize="14"
+                               Foreground="#087F5B"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <StackPanel Grid.Column="1" Margin="2,0,8,0">
+                    <TextBlock x:Name="TitleTextBlock" Text="Kronix"
+                               FontFamily="Segoe UI" FontSize="14"
+                               FontWeight="SemiBold" Foreground="#20364F"
+                               TextWrapping="Wrap"/>
+                    <TextBlock x:Name="MessageTextBlock" Margin="0,4,0,0"
+                               FontFamily="Segoe UI" FontSize="12"
+                               Foreground="#475467" TextWrapping="Wrap"/>
+                </StackPanel>
+                <Button Grid.Column="2" Width="24" Height="24"
+                        Padding="0" Background="Transparent"
+                        BorderThickness="0" Foreground="#98A2B3"
+                        FontFamily="Segoe MDL2 Assets" Content="&#xE711;"
+                        FontSize="10" VerticalAlignment="Top"
+                        Cursor="Hand" ToolTip="Schließen"
+                        Click="CloseButton_Click"/>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

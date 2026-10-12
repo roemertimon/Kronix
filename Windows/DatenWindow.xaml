@@ -92,6 +92,8 @@
             <Setter Property="Padding" Value="10,0"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="#344054"/>
             <Setter Property="BorderBrush" Value="#D0D5DD"/>
             <Setter Property="BorderThickness" Value="1"/>
         </Style>
@@ -100,11 +102,23 @@
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="Language" Value="de-DE"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="#344054"/>
+            <Setter Property="BorderBrush" Value="#D0D5DD"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Style.Triggers>
+                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                    <Setter Property="BorderBrush" Value="#84ADFF"/>
+                </Trigger>
+            </Style.Triggers>
         </Style>
         <Style TargetType="{x:Type DatePickerTextBox}">
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Language" Value="de-DE"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#344054"/>
+            <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type DatePickerTextBox}">
@@ -289,7 +303,7 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
                 <DataGridTextColumn Header="Dauer"
-                                    Binding="{Binding Duration, StringFormat={}{0:hh\\:mm}}"
+                                    Binding="{Binding DurationText}"
                                     Width="0.75*" MinWidth="78" IsReadOnly="True"
                                     ElementStyle="{StaticResource CenteredCellText}"/>
                 <DataGridTemplateColumn Header="Tätigkeit / Notiz" Width="1.5*" MinWidth="135">

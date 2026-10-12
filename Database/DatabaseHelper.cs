@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using Microsoft.Data.Sqlite;
+using Kronix.Logging;
 
 namespace Kronix.Database;
 
@@ -45,6 +47,10 @@ public class DatabaseHelper
                 return null;
             }
         }
+
+        public string DurationText => Duration is TimeSpan duration
+            ? $"{(int)duration.TotalHours:00}:{duration.Minutes:00}"
+            : string.Empty;
     }
     
     private string _connectionString;
@@ -60,45 +66,108 @@ public class DatabaseHelper
         _reportStatus = reportStatus;
         _databasePathSettingPath = databasePathSettingPath ?? GetDatabaseConfigurationPath();
         _reportStatus?.Invoke("Datenbankdatei wird gesucht …");
-        string baseDirectory = AppContext.BaseDirectory;
-        string resourceDbPath = System.IO.Path.Combine(baseDirectory, "Resources", "kundenDaten.sqlite");
-        string topLevelDbPath = System.IO.Path.Combine(baseDirectory, "kundenDaten.sqlite");
-
         string? configuredDbPath = GetConfiguredDatabasePath(_databasePathSettingPath);
-        string dbPath = !string.IsNullOrWhiteSpace(configuredDbPath) && System.IO.File.Exists(configuredDbPath)
-            ? configuredDbPath
-            : resourceDbPath;
-
-        if (!System.IO.File.Exists(dbPath))
+        string dbPath;
+        SqliteOpenMode openMode;
+        if (!string.IsNullOrWhiteSpace(configuredDbPath))
         {
-            if (System.IO.File.Exists(topLevelDbPath))
+            dbPath = Path.GetFullPath(configuredDbPath);
+            openMode = SqliteOpenMode.ReadWrite;
+            if (!File.Exists(dbPath))
             {
-                dbPath = topLevelDbPath;
+                AppLogger.Error("database.configured_file_missing",
+                    "The configured database file is missing. Startup will not silently switch to another database.");
             }
-            else
-            {
-                string? directory = System.IO.Path.GetDirectoryName(dbPath);
-                if (!string.IsNullOrEmpty(directory))
-                {
-                    System.IO.Directory.CreateDirectory(directory);
-                }
-            }
+        }
+        else
+        {
+            dbPath = GetOrCreateUserDatabasePath();
+            openMode = SqliteOpenMode.ReadWriteCreate;
         }
 
         DatabasePath = System.IO.Path.GetFullPath(dbPath);
-        _connectionString = BuildConnectionString(DatabasePath, SqliteOpenMode.ReadWriteCreate);
+        _connectionString = BuildConnectionString(DatabasePath, openMode);
 
-        Console.WriteLine($"Database path: {dbPath}");
+        AppLogger.Information("database.startup_open", "Opening the selected database.");
         _reportStatus?.Invoke("Datenbankverbindung wird geprüft …");
         InitializeDatabase();
         if (_isDatabaseInitialized)
         {
             _reportStatus?.Invoke("Offene Zeiteinträge werden geprüft …");
-            int recoveredEntries = CloseOpenTimeLogs(DateTime.Now);
-            if (recoveredEntries > 0)
+            try
             {
-                Console.WriteLine($"Closed {recoveredEntries} time log(s) left open by an earlier shutdown.");
+                CloseOpenTimeLogs(DateTime.Now);
             }
+            catch (Exception ex)
+            {
+                _isDatabaseInitialized = false;
+                InitializationError = $"Offene Zeiteinträge konnten nicht abgeschlossen werden: {ex.Message}";
+                AppLogger.Error("timelog.recovery_failed",
+                    "Could not recover unfinished time entries during startup.", ex);
+            }
+        }
+    }
+
+    private static string GetOrCreateUserDatabasePath()
+    {
+        string userDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Kronix");
+        Directory.CreateDirectory(userDirectory);
+        string userDatabasePath = Path.Combine(userDirectory, "kundenDaten.sqlite");
+        if (File.Exists(userDatabasePath))
+        {
+            return userDatabasePath;
+        }
+
+        string baseDirectory = AppContext.BaseDirectory;
+        string resourceDatabasePath = Path.Combine(baseDirectory, "Resources", "kundenDaten.sqlite");
+        string topLevelDatabasePath = Path.Combine(baseDirectory, "kundenDaten.sqlite");
+        string? sourcePath = File.Exists(resourceDatabasePath) ? resourceDatabasePath
+            : File.Exists(topLevelDatabasePath) ? topLevelDatabasePath
+            : null;
+
+        if (sourcePath is null)
+        {
+            AppLogger.Warning("database.seed_missing",
+                "No bundled database was found; a new database will be created in the user data folder.");
+            return userDatabasePath;
+        }
+
+        string temporaryPath = Path.Combine(userDirectory, $"kundenDaten-{Guid.NewGuid():N}.sqlite");
+        try
+        {
+            using (var source = new SqliteConnection(BuildConnectionString(
+                       sourcePath, SqliteOpenMode.ReadOnly, pooling: false)))
+            using (var destination = new SqliteConnection(BuildConnectionString(
+                       temporaryPath, SqliteOpenMode.ReadWriteCreate, pooling: false)))
+            {
+                source.Open();
+                destination.Open();
+                source.BackupDatabase(destination);
+            }
+
+            try
+            {
+                File.Move(temporaryPath, userDatabasePath);
+            }
+            catch (IOException) when (File.Exists(userDatabasePath))
+            {
+                File.Delete(temporaryPath);
+            }
+
+            AppLogger.Information("database.seed_copied",
+                "Copied the bundled database into the user data folder.");
+            return userDatabasePath;
+        }
+        catch
+        {
+            if (File.Exists(temporaryPath))
+            {
+                File.Delete(temporaryPath);
+            }
+
+            throw;
         }
     }
     
@@ -112,13 +181,13 @@ public class DatabaseHelper
             EnsureSchema(connection);
 
             _isDatabaseInitialized = true;
-            Console.WriteLine("Database connection established.");
+            AppLogger.Information("database.initialized", "Database schema check completed.");
         }
         catch (Exception ex)
         {
             _isDatabaseInitialized = false;
             InitializationError = ex.Message;
-            Console.WriteLine("Failed to initialize the database: " + ex.Message);
+            AppLogger.Error("database.initialization_failed", "Could not initialize the selected database.", ex);
         }
     }
 
@@ -196,7 +265,7 @@ public class DatabaseHelper
             migration.ExecuteNonQuery();
         }
 
-        Console.WriteLine("Database initialized.");
+        AppLogger.Information("database.schema_ready", "Database schema check completed.");
     }
     
     public bool IsDatabaseInitialized()
@@ -301,7 +370,7 @@ public class DatabaseHelper
             }
 
             using var updateLogs = new SqliteCommand(
-                "UPDATE TimeLogs SET ClientNumber = @number WHERE ClientNumber = @original",
+                "UPDATE TimeLogs SET ClientNumber = @number WHERE ClientNumber = @original COLLATE NOCASE",
                 connection, transaction);
             updateLogs.Parameters.AddWithValue("@number", customer.ClientNumber.Trim());
             updateLogs.Parameters.AddWithValue("@original", originalClientNumber.Trim());
@@ -369,6 +438,7 @@ public class DatabaseHelper
             _isDatabaseInitialized = true;
             InitializationError = null;
             DatabaseStateChanged?.Invoke(this, EventArgs.Empty);
+            AppLogger.Information("database.integrity_passed", "The database integrity check completed successfully.");
         }
 
         return result;
@@ -446,6 +516,7 @@ public class DatabaseHelper
         _hasActiveTimeLog = false;
         InitializationError = null;
         DatabaseStateChanged?.Invoke(this, EventArgs.Empty);
+        AppLogger.Information("database.switched", "The active database was changed and validated.");
     }
 
     public void ExportDatabaseArchive(string archivePath)
@@ -557,11 +628,11 @@ public class DatabaseHelper
         command.Parameters.AddWithValue("@startTime", startTime.ToString("yyyy-MM-dd HH:mm:ss"));
         command.Parameters.AddWithValue("@notes", (object?)notes ?? DBNull.Value);
         command.ExecuteNonQuery();
-        _hasActiveTimeLog = true;
-
-        Console.WriteLine("Start time log added for client: " + clientNumber);
         using var idCommand = new SqliteCommand("SELECT last_insert_rowid()", connection);
-        return Convert.ToInt32(idCommand.ExecuteScalar());
+        int timeLogId = Convert.ToInt32(idCommand.ExecuteScalar());
+        _hasActiveTimeLog = true;
+        AppLogger.Information("timelog.started", "A time-tracking entry was started.");
+        return timeLogId;
     }
 
     public int AddManualTimeLog(string clientNumber, DateTime startTime, DateTime endTime, string? notes)
@@ -572,6 +643,11 @@ public class DatabaseHelper
         }
 
         startTime = TruncateToMinute(startTime);
+        if (startTime > DateTime.Now || endTime > DateTime.Now)
+        {
+            throw new ArgumentException("Ein manueller Zeiteintrag darf nicht in der Zukunft liegen.");
+        }
+
         if (endTime < startTime)
         {
             throw new ArgumentException("Die Endzeit darf nicht vor der Startzeit liegen.", nameof(endTime));
@@ -630,9 +706,15 @@ public class DatabaseHelper
         selectCommand.Parameters.AddWithValue("@id", timeLogId);
         object? startValue = selectCommand.ExecuteScalar();
         if (startValue is not string startText ||
-            !DateTime.TryParse(startText, out DateTime startTime))
+            !DateTime.TryParse(startText, CultureInfo.InvariantCulture,
+                DateTimeStyles.None, out DateTime startTime))
         {
             return false;
+        }
+
+        if (endTime < startTime)
+        {
+            throw new ArgumentException("Die Endzeit darf nicht vor der Startzeit liegen.", nameof(endTime));
         }
 
         DateTime normalizedEndTime = RoundEndTime(startTime, endTime);
@@ -678,9 +760,15 @@ public class DatabaseHelper
         {
             while (reader.Read())
             {
-                if (DateTime.TryParse(reader.GetString(1), out DateTime startTime))
+                if (DateTime.TryParse(reader.GetString(1), CultureInfo.InvariantCulture,
+                        DateTimeStyles.None, out DateTime startTime))
                 {
                     openEntries.Add((reader.GetInt32(0), startTime));
+                }
+                else
+                {
+                    throw new InvalidDataException(
+                        $"Open time entry {reader.GetInt32(0)} has an invalid start time.");
                 }
             }
         }
@@ -695,11 +783,18 @@ public class DatabaseHelper
         foreach ((int id, DateTime startTime) in openEntries)
         {
             idParameter.Value = id;
-            endTimeParameter.Value = RoundEndTime(startTime, endTime).ToString("yyyy-MM-dd HH:mm:ss");
+            DateTime safeEndTime = endTime < startTime
+                ? startTime
+                : RoundEndTime(startTime, endTime);
+            endTimeParameter.Value = safeEndTime.ToString("yyyy-MM-dd HH:mm:ss");
             updatedCount += updateCommand.ExecuteNonQuery();
         }
 
         transaction.Commit();
+        if (updatedCount > 0)
+        {
+            AppLogger.Warning("timelog.recovered", $"Closed {updatedCount} unfinished time log(s).");
+        }
         return updatedCount;
     }
 
@@ -773,6 +868,11 @@ public class DatabaseHelper
         if (endTime < startTime)
         {
             throw new ArgumentException("Die Endzeit darf nicht vor der Startzeit liegen.", nameof(endTime));
+        }
+
+        if (startTime > DateTime.Now || endTime > DateTime.Now)
+        {
+            throw new ArgumentException("Ein abgeschlossener Zeiteintrag darf nicht in der Zukunft liegen.");
         }
 
         startTime = TruncateToMinute(startTime);
@@ -854,8 +954,12 @@ public class DatabaseHelper
         {
             Id = reader.GetInt32(0),
             ClientNumber = reader.GetString(1),
-            StartTime = reader.IsDBNull(2) ? null : DateTime.Parse(reader.GetString(2)),
-            EndTime = reader.IsDBNull(3) ? null : DateTime.Parse(reader.GetString(3)),
+            StartTime = reader.IsDBNull(2)
+                ? null
+                : DateTime.Parse(reader.GetString(2), CultureInfo.InvariantCulture),
+            EndTime = reader.IsDBNull(3)
+                ? null
+                : DateTime.Parse(reader.GetString(3), CultureInfo.InvariantCulture),
             IsBilled = reader.GetInt32(4) != 0,
             Notes = reader.IsDBNull(5) ? null : reader.GetString(5)
         };
@@ -925,7 +1029,15 @@ public class DatabaseHelper
 
     private static string? GetConfiguredDatabasePath(string configPath)
     {
-        return File.Exists(configPath) ? File.ReadAllText(configPath).Trim() : null;
+        try
+        {
+            return File.Exists(configPath) ? File.ReadAllText(configPath).Trim() : null;
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("database.config_read_failed", "Could not read the saved database location.", ex);
+            throw;
+        }
     }
 
     private void SaveConfiguredDatabasePath(string path)
@@ -937,7 +1049,21 @@ public class DatabaseHelper
         }
 
         Directory.CreateDirectory(directory);
-        File.WriteAllText(_databasePathSettingPath, path);
+        string temporaryPath = Path.Combine(directory, $"{Path.GetFileName(_databasePathSettingPath)}.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            File.WriteAllText(temporaryPath, path);
+            File.Move(temporaryPath, _databasePathSettingPath, overwrite: true);
+        }
+        catch
+        {
+            if (File.Exists(temporaryPath))
+            {
+                File.Delete(temporaryPath);
+            }
+
+            throw;
+        }
     }
 
     private static DateTime TruncateToMinute(DateTime value)
