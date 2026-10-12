@@ -49,11 +49,6 @@ public partial class DatenWindow : UserControl
         UpdateResultsCount();
     }
 
-    private void ApplyFiltersButton_Click(object sender, RoutedEventArgs e)
-    {
-        ApplyCurrentFilters();
-    }
-
     private bool ApplyCurrentFilters()
     {
         if (FromDatePicker.SelectedDate is DateTime fromDate &&
@@ -100,14 +95,6 @@ public partial class DatenWindow : UserControl
 
         _timeLogsView.Refresh();
         UpdateResultsCount();
-    }
-
-    private void FilterTextBox_KeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Enter)
-        {
-            ApplyFiltersButton_Click(sender, new RoutedEventArgs());
-        }
     }
 
     private void ClearFiltersButton_Click(object sender, RoutedEventArgs e)
