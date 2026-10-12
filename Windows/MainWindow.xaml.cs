@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 using Kronix.Database;
+using Kronix.Logging;
 using Kronix.Windows;
 
 namespace Kronix
@@ -57,10 +58,13 @@ namespace Kronix
                 App.DbHelper = dbHelper;
                 if (!dbHelper.IsDatabaseInitialized())
                 {
+                    AppLogger.Warning("database.startup_unavailable",
+                        "The application startup database check reported that the database is unavailable.");
                     throw new InvalidOperationException(
                         $"Datenbankverbindung fehlgeschlagen: {dbHelper.InitializationError ?? "Unbekannter Fehler."}");
                 }
 
+                AppLogger.Information("database.startup_ready", "The startup database check succeeded.");
                 StatusText.Text = "Datenbank bereit";
                 StatusIndicator.Fill = System.Windows.Media.Brushes.SeaGreen;
                 StatusIndicator.Visibility = Visibility.Visible;
@@ -71,6 +75,8 @@ namespace Kronix
             }
             catch (Exception ex)
             {
+                AppLogger.Error("application.startup_database_failed",
+                    "The startup database initialization flow failed.", ex);
                 StatusText.Text = ex.Message;
                 StatusIndicator.Fill = System.Windows.Media.Brushes.IndianRed;
                 StatusIndicator.Visibility = Visibility.Visible;
@@ -78,7 +84,6 @@ namespace Kronix
                 StartButton.IsEnabled = true;
                 RetryButton.Visibility = Visibility.Visible;
                 InitializationProgressBar.Visibility = Visibility.Collapsed;
-                Console.WriteLine("Failed to connect to the database: " + ex);
             }
         }
 
@@ -98,6 +103,7 @@ namespace Kronix
 
             var dashboardWindow = new DashboardWindow(_dbHelper);
             dashboardWindow.Show();
+            AppLogger.Information("application.dashboard_opened", "The main dashboard was opened.");
             Close();
         }
 

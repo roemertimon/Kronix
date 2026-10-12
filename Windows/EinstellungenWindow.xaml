@@ -26,12 +26,13 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <StackPanel Grid.Row="0" Margin="0,0,0,18">
                 <TextBlock Text="Einstellungen" FontSize="23" FontWeight="SemiBold"
                            Foreground="{StaticResource NavyBrush}"/>
-                <TextBlock Text="Datenbank, Sicherungen und Systemstatus"
+                <TextBlock Text="Datenbank, Sicherungen, Protokoll und Systemstatus"
                            FontSize="13" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0"/>
             </StackPanel>
 
@@ -93,7 +94,26 @@
                 </StackPanel>
             </Border>
 
-            <Border Grid.Row="3" Background="#EEF7F2" CornerRadius="10"
+            <Border Grid.Row="3" Background="White" CornerRadius="12" Padding="20"
+                    BorderBrush="#E6EBF0" BorderThickness="1" Margin="0,0,0,14">
+                <StackPanel>
+                    <TextBlock Text="Aktivitätsprotokoll" FontSize="17"
+                               FontWeight="SemiBold" Foreground="{StaticResource NavyBrush}"/>
+                    <TextBlock Text="Protokolliert wichtige Aktionen und Fehler. Eingaben wie Notizen oder Kundendaten werden nicht mitgeschrieben. Eine Datei ist höchstens 1 MB groß; drei ältere Dateien werden aufbewahrt."
+                               FontSize="13" Foreground="{StaticResource MutedBrush}"
+                               TextWrapping="Wrap" Margin="0,6,0,10"/>
+                    <TextBlock x:Name="LogPathTextBlock" TextWrapping="Wrap"
+                               FontSize="12" Foreground="#475467" Margin="0,0,0,12"/>
+                    <WrapPanel>
+                        <Button Content="Protokoll ansehen" Style="{StaticResource ActionButton}"
+                                Margin="0,0,8,0" Click="ViewLogButton_Click"/>
+                        <Button Content="Protokollordner öffnen" Style="{StaticResource ActionButton}"
+                                Click="OpenLogFolderButton_Click"/>
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Row="4" Background="#EEF7F2" CornerRadius="10"
                     Padding="14" BorderBrush="#D4EBDD" BorderThickness="1">
                 <TextBlock x:Name="DatabaseStatusTextBlock" Text="Datenbankstatus wird geprüft."
                            FontSize="13" Foreground="#28704D" TextWrapping="Wrap"/>
