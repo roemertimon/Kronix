@@ -47,6 +47,18 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+            <Style.Triggers>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource Self}}"
+                                   Value="True"/>
+                        <Condition Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                   Value="True"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="#DCE6EF"/>
+                    <Setter Property="Foreground" Value="#20364F"/>
+                </MultiDataTrigger>
+            </Style.Triggers>
         </Style>
         <Style x:Key="CenteredCellText" TargetType="TextBlock">
             <Setter Property="VerticalAlignment" Value="Center"/>
@@ -66,6 +78,16 @@
                 <Trigger Property="AlternationIndex" Value="1">
                     <Setter Property="Background" Value="#F2F4F7"/>
                 </Trigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource Self}}"
+                                   Value="True"/>
+                        <Condition Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                   Value="True"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="#E8EEF3"/>
+                    <Setter Property="BorderBrush" Value="#C7D2DC"/>
+                </MultiDataTrigger>
             </Style.Triggers>
         </Style>
         <Style x:Key="CustomerActionButtonStyle" TargetType="Button">
@@ -75,6 +97,37 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="AddCustomerButtonStyle" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ActionBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ActionBorder" Property="Background" Value="#2D4A68"/>
+                                <Setter TargetName="ActionBorder" Property="BorderBrush" Value="#2D4A68"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ActionBorder" Property="Background" Value="#182A3D"/>
+                                <Setter TargetName="ActionBorder" Property="BorderBrush" Value="#182A3D"/>
+                                <Setter TargetName="ActionBorder" Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ActionBorder" Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </UserControl.Resources>
 
@@ -114,6 +167,7 @@
                     Height="40" Padding="18,0"
                     Background="{StaticResource NavyBrush}" Foreground="White"
                     BorderThickness="0" FontSize="14" FontWeight="SemiBold"
+                    Style="{StaticResource AddCustomerButtonStyle}"
                     Click="AddCustomerButton_Click"/>
         </Grid>
 
@@ -129,11 +183,11 @@
                       FontSize="13"
                       HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto"
-                      LostKeyboardFocus="CustomersDataGrid_LostKeyboardFocus"
+                      PreviewKeyDown="CustomersDataGrid_PreviewKeyDown"
                       MouseDoubleClick="CustomersDataGrid_MouseDoubleClick">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Kundennummer" Binding="{Binding ClientNumber}"
-                                        Width="1.1*" MinWidth="95"
+                                        Width="1.1*" MinWidth="150"
                                         ElementStyle="{StaticResource CustomerNumberStyle}"/>
                     <DataGridTextColumn Header="Vorname" Binding="{Binding FirstName}"
                                         Width="0.85*" MinWidth="70"
@@ -164,7 +218,7 @@
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                                     <Button Style="{StaticResource CustomerActionButtonStyle}"
-                                            ToolTip="Kundendaten bearbeiten"
+                                            ToolTip="Kundendaten bearbeiten (E bei Auswahl)"
                                             AutomationProperties.Name="Kundendaten bearbeiten"
                                             Click="EditCustomerButton_Click">
                                         <TextBlock Text="&#xE70F;" FontFamily="Segoe MDL2 Assets"
@@ -172,7 +226,7 @@
                                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Button>
                                     <Button Style="{StaticResource CustomerActionButtonStyle}"
-                                            ToolTip="Kunden löschen"
+                                            ToolTip="Kunden löschen (Entf bei Auswahl)"
                                             AutomationProperties.Name="Kunden löschen"
                                             Click="DeleteCustomerButton_Click">
                                         <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets"
