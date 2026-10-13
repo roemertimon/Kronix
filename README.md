@@ -135,7 +135,7 @@ Kronix/
 
 ## License
 
-Kronix is licensed under the Zero-Clause BSD License (0BSD). You may use, copy, modify, and distribute the project without asking for permission or providing attribution. The copyright remains with the author; credit is welcome but not required. See [LICENSE](LICENSE) for the full terms.
+Kronix is licensed under the GNU General Public License v3.0. You may use, modify, and redistribute it under the terms of the GPL. If you distribute Kronix, you must comply with the license requirements, including providing the corresponding source code when required. Copyright notices must be retained. See [LICENSE](LICENSE) for the full terms.
 
-Third-party libraries retain their own licenses. The 0BSD license does not replace the terms that apply to those dependencies.
+Third-party libraries retain their own licenses; the GPL does not replace the terms that apply to those dependencies.
 The license does not grant rights to use Kronix branding or logos.
