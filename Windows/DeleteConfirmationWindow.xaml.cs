@@ -25,6 +25,16 @@ public partial class DeleteConfirmationWindow : Window
         DeleteActionButton.Content = "Kunde löschen";
     }
 
+    public DeleteConfirmationWindow(DatabaseHelper.Employee employee)
+    {
+        InitializeComponent();
+        TitleTextBlock.Text = "Mitarbeiter wirklich löschen?";
+        DescriptionTextBlock.Text = "Möchten Sie diesen Mitarbeiter wirklich endgültig entfernen?";
+        ClientTextBlock.Text = $"Mitarbeiternummer {employee.EmployeeNumber} · {employee.DisplayName}";
+        StartTimeTextBlock.Text = "Keine Zeiteinträge vorhanden";
+        DeleteActionButton.Content = "Mitarbeiter löschen";
+    }
+
     public DeleteConfirmationWindow(IReadOnlyCollection<DatabaseHelper.TimeLog> timeLogs)
     {
         if (timeLogs.Count == 0)

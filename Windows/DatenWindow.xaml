@@ -461,6 +461,10 @@
                 <DataGridTextColumn Header="Kundennummer" Binding="{Binding ClientNumber}"
                                     Width="Auto" MinWidth="125" IsReadOnly="True"
                                     ElementStyle="{StaticResource CustomerCellText}"/>
+                <DataGridTextColumn Header="Mitarbeiternummer"
+                                    Binding="{Binding EmployeeNumber, TargetNullValue=—}"
+                                    Width="Auto" MinWidth="125" IsReadOnly="True"
+                                    ElementStyle="{StaticResource CenteredCellText}"/>
                 <DataGridTextColumn Header="Datum"
                                     Binding="{Binding StartTime, StringFormat={}{0:dd.MM.yyyy}}"
                                     Width="0.95*" MinWidth="100" IsReadOnly="True"

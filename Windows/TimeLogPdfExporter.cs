@@ -22,7 +22,8 @@ internal static class TimeLogPdfExporter
         bool includeSummary,
         DateTime? fromDate,
         DateTime? toDate,
-        IReadOnlyDictionary<string, string> customerNames)
+        IReadOnlyDictionary<string, DatabaseHelper.Customer> customers,
+        bool includeHourlyRate)
     {
         using var document = new PdfDocument();
         document.Info.Title = "Zeiteinträge";
@@ -55,6 +56,34 @@ internal static class TimeLogPdfExporter
         int currentGroupCount = logs.Count;
         bool firstPage = true;
 
+        string[] summaryHeaders = includeHourlyRate
+            ? ["Kundennr.", "Kunde", "Mitarbeiter", "Eintr.", "Gesamtzeit", "€/Std.", "Betrag"]
+            : ["Kundennr.", "Kunde", "Mitarbeiter", "Eintr.", "Gesamtzeit"];
+        double[] summaryColumnRatios = includeHourlyRate
+            ? [0.13, 0.24, 0.13, 0.10, 0.17, 0.11, 0.12]
+            : [0.15, 0.32, 0.17, 0.12, 0.24];
+
+        void DrawSummaryTableHeader()
+        {
+            if (graphics is null)
+            {
+                throw new InvalidOperationException("Die PDF-Seite konnte nicht erstellt werden.");
+            }
+
+            graphics.DrawRectangle(new XSolidBrush(XColor.FromArgb(234, 240, 246)),
+                Margin, y, contentWidth, 22);
+            double columnX = Margin;
+            for (int column = 0; column < summaryHeaders.Length; column++)
+            {
+                double columnWidth = contentWidth * summaryColumnRatios[column];
+                graphics.DrawString(summaryHeaders[column], mutedFont, XBrushes.DarkSlateGray,
+                    new XRect(columnX + 4, y + 5, columnWidth - 6, 14), XStringFormats.TopLeft);
+                columnX += columnWidth;
+            }
+
+            y += 22;
+        }
+
         void StartSummaryPage(bool continuation = false)
         {
             graphics?.Dispose();
@@ -78,30 +107,28 @@ internal static class TimeLogPdfExporter
             TimeSpan totalDuration = SumDuration(logs);
             TimeSpan billedDuration = SumDuration(logs.Where(log => log.IsBilled));
             TimeSpan openDuration = SumDuration(logs.Where(log => !log.IsBilled));
-            DrawSummaryMetric("Einträge", logs.Count.ToString(german), 0);
-            DrawSummaryMetric("Gesamtzeit", FormatDuration(totalDuration, useDecimalHours, german), 1);
-            DrawSummaryMetric("Abgerechnet", $"{logs.Count(log => log.IsBilled)} · {FormatDuration(billedDuration, useDecimalHours, german)}", 2);
-            DrawSummaryMetric("Offen", $"{logs.Count(log => !log.IsBilled)} · {FormatDuration(openDuration, useDecimalHours, german)}", 3);
-            y += 65;
+            var metrics = new List<(string Label, string Value)>
+            {
+                ("Einträge", logs.Count.ToString(german)),
+                ("Gesamtzeit", FormatDuration(totalDuration, useDecimalHours, german)),
+                ("Abgerechnet", $"{logs.Count(log => log.IsBilled)} · {FormatDuration(billedDuration, useDecimalHours, german)}"),
+                ("Offen", $"{logs.Count(log => !log.IsBilled)} · {FormatDuration(openDuration, useDecimalHours, german)}")
+            };
+            if (includeHourlyRate)
+            {
+                decimal totalAmount = logs.Sum(log => GetAmount(log, customers));
+                metrics.Add(("Gesamtbetrag", totalAmount.ToString("C2", german)));
+            }
 
-            double numberWidth = contentWidth * 0.18;
-            double nameWidth = contentWidth * 0.42;
-            double countWidth = contentWidth * 0.16;
-            double hoursWidth = contentWidth - numberWidth - nameWidth - countWidth;
-            graphics.DrawRectangle(new XSolidBrush(XColor.FromArgb(234, 240, 246)),
-                Margin, y, contentWidth, 22);
-            graphics.DrawString("Kundennummer", mutedFont, XBrushes.DarkSlateGray,
-                new XRect(Margin + 6, y + 5, numberWidth - 6, 14), XStringFormats.TopLeft);
-            graphics.DrawString("Kunde", mutedFont, XBrushes.DarkSlateGray,
-                new XRect(Margin + numberWidth + 6, y + 5, nameWidth - 6, 14), XStringFormats.TopLeft);
-            graphics.DrawString("Einträge", mutedFont, XBrushes.DarkSlateGray,
-                new XRect(Margin + numberWidth + nameWidth + 6, y + 5, countWidth - 6, 14), XStringFormats.TopLeft);
-            graphics.DrawString("Gesamtzeit", mutedFont, XBrushes.DarkSlateGray,
-                new XRect(Margin + numberWidth + nameWidth + countWidth + 6, y + 5, hoursWidth - 6, 14), XStringFormats.TopLeft);
-            y += 22;
+            for (int index = 0; index < metrics.Count; index++)
+            {
+                DrawSummaryMetric(metrics[index].Label, metrics[index].Value, index, metrics.Count);
+            }
+            y += 65;
+            DrawSummaryTableHeader();
         }
 
-        void DrawSummaryMetric(string label, string value, int index)
+        void DrawSummaryMetric(string label, string value, int index, int metricCount)
         {
             if (graphics is null)
             {
@@ -109,7 +136,7 @@ internal static class TimeLogPdfExporter
             }
 
             double gap = 8;
-            double metricWidth = (contentWidth - gap * 3) / 4;
+            double metricWidth = (contentWidth - gap * (metricCount - 1)) / metricCount;
             double x = Margin + index * (metricWidth + gap);
             graphics.DrawRoundedRectangle(new XPen(XColor.FromArgb(225, 231, 238)),
                 new XSolidBrush(XColor.FromArgb(247, 249, 251)), x, y, metricWidth, 48, 5, 5);
@@ -159,12 +186,11 @@ internal static class TimeLogPdfExporter
         if (includeSummary)
         {
             StartSummaryPage();
-            double numberWidth = contentWidth * 0.18;
-            double nameWidth = contentWidth * 0.42;
-            double countWidth = contentWidth * 0.16;
-            double hoursWidth = contentWidth - numberWidth - nameWidth - countWidth;
-
-            foreach ((string customerNumber, List<DatabaseHelper.TimeLog> customerLogs) in groups)
+            var summaryGroups = logs.GroupBy(log => (
+                CustomerNumber: string.IsNullOrWhiteSpace(log.ClientNumber) ? "Ohne Kundennummer" : log.ClientNumber,
+                EmployeeNumber: string.IsNullOrWhiteSpace(log.EmployeeNumber) ? "—" : log.EmployeeNumber));
+            foreach (IGrouping<(string CustomerNumber, string EmployeeNumber), DatabaseHelper.TimeLog> group
+                     in summaryGroups)
             {
                 if (graphics is null || y + 21 > pageBottom)
                 {
@@ -176,19 +202,36 @@ internal static class TimeLogPdfExporter
                     throw new InvalidOperationException("Die PDF-Seite konnte nicht erstellt werden.");
                 }
 
-                string customerName = customerNames.TryGetValue(customerNumber, out string? name)
-                    ? name
-                    : customerNumber;
-                graphics.DrawString(customerNumber, detailFont, XBrushes.DarkSlateGray,
-                    new XRect(Margin + 6, y + 4, numberWidth - 6, 14), XStringFormats.TopLeft);
-                graphics.DrawString(customerName, detailFont, XBrushes.DarkSlateGray,
-                    new XRect(Margin + numberWidth + 6, y + 4, nameWidth - 6, 14), XStringFormats.TopLeft);
-                graphics.DrawString(customerLogs.Count.ToString(german), detailFont, XBrushes.DarkSlateGray,
-                    new XRect(Margin + numberWidth + nameWidth + 6, y + 4, countWidth - 6, 14), XStringFormats.TopLeft);
-                graphics.DrawString(FormatDuration(SumDuration(customerLogs), useDecimalHours, german),
-                    detailFont, XBrushes.DarkSlateGray,
-                    new XRect(Margin + numberWidth + nameWidth + countWidth + 6, y + 4, hoursWidth - 6, 14),
-                    XStringFormats.TopLeft);
+                customers.TryGetValue(group.Key.CustomerNumber, out DatabaseHelper.Customer? customer);
+                string customerName = customer is null
+                    ? group.Key.CustomerNumber
+                    : string.Join(" · ", new[] { customer.Company, customer.DisplayName }
+                        .Where(value => !string.IsNullOrWhiteSpace(value)));
+                TimeSpan groupDuration = SumDuration(group);
+                var rowValues = new List<string>
+                {
+                    group.Key.CustomerNumber,
+                    string.IsNullOrWhiteSpace(customerName) ? group.Key.CustomerNumber : customerName,
+                    group.Key.EmployeeNumber,
+                    group.Count().ToString(german),
+                    FormatDuration(groupDuration, useDecimalHours, german)
+                };
+                if (includeHourlyRate)
+                {
+                    rowValues.Add(customer?.HourlyRate?.ToString("C2", german) ?? "—");
+                    rowValues.Add(customer?.HourlyRate is decimal hourlyRate
+                        ? group.Sum(log => GetAmount(log, customers)).ToString("C2", german)
+                        : "—");
+                }
+
+                double columnX = Margin;
+                for (int column = 0; column < rowValues.Count; column++)
+                {
+                    double columnWidth = contentWidth * summaryColumnRatios[column];
+                    graphics.DrawString(rowValues[column], mutedFont, XBrushes.DarkSlateGray,
+                        new XRect(columnX + 4, y + 4, columnWidth - 6, 14), XStringFormats.TopLeft);
+                    columnX += columnWidth;
+                }
                 y += 21;
                 graphics.DrawLine(new XPen(XColor.FromArgb(230, 233, 237)), Margin, y,
                     Margin + contentWidth, y);
@@ -217,7 +260,7 @@ internal static class TimeLogPdfExporter
                 string[] noteLines = string.IsNullOrWhiteSpace(log.Notes)
                     ? Array.Empty<string>()
                     : WrapText(log.Notes, noteFont, contentWidth - 16, graphics!).ToArray();
-                double entryHeight = 34 + (noteLines.Length > 0 ? 5 + noteLines.Length * LineHeight : 0);
+                double entryHeight = 47 + (noteLines.Length > 0 ? 5 + noteLines.Length * LineHeight : 0);
                 EnsureSpace(entryHeight);
 
                 if (graphics is null)
@@ -245,7 +288,22 @@ internal static class TimeLogPdfExporter
                 graphics.DrawString(log.IsBilled ? "Abgerechnet" : "Offen",
                     mutedFont, log.IsBilled ? XBrushes.SeaGreen : XBrushes.Gray,
                     new XRect(x, y + 1, statusColumnWidth, LineHeight), XStringFormats.TopLeft);
-                y += LineHeight + 3;
+                string employeeDetails = $"Mitarbeiter: {log.EmployeeNumber ?? "—"}";
+                if (includeHourlyRate)
+                {
+                    DatabaseHelper.Customer? customer = log.ClientNumber is not null &&
+                        customers.TryGetValue(log.ClientNumber, out DatabaseHelper.Customer? logCustomer)
+                            ? logCustomer
+                            : null;
+                    employeeDetails += customer?.HourlyRate is decimal hourlyRate
+                        ? $" · Stundensatz: {hourlyRate.ToString("C2", german)} · Betrag: {GetAmount(log, customers).ToString("C2", german)}"
+                        : " · Kein Stundensatz hinterlegt";
+                }
+
+                graphics.DrawString(employeeDetails,
+                    noteFont, XBrushes.Gray,
+                    new XRect(Margin, y + LineHeight + 2, contentWidth, LineHeight), XStringFormats.TopLeft);
+                y += LineHeight * 2 + 3;
 
                 foreach (string line in noteLines)
                 {
@@ -346,6 +404,21 @@ internal static class TimeLogPdfExporter
     private static TimeSpan SumDuration(IEnumerable<DatabaseHelper.TimeLog> logs)
     {
         return TimeSpan.FromTicks(logs.Sum(log => GetDuration(log)?.Ticks ?? 0));
+    }
+
+    private static decimal GetAmount(
+        DatabaseHelper.TimeLog log,
+        IReadOnlyDictionary<string, DatabaseHelper.Customer> customers)
+    {
+        if (log.ClientNumber is null ||
+            !customers.TryGetValue(log.ClientNumber, out DatabaseHelper.Customer? customer) ||
+            customer.HourlyRate is not decimal hourlyRate ||
+            GetDuration(log) is not TimeSpan duration)
+        {
+            return 0m;
+        }
+
+        return decimal.Round((decimal)duration.TotalHours * hourlyRate, 2, MidpointRounding.AwayFromZero);
     }
 
     private static string FormatPeriod(

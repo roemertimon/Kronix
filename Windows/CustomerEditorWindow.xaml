@@ -16,6 +16,8 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
             <StackPanel Grid.Row="0">
                 <TextBlock x:Name="TitleTextBlock" Text="Kunde hinzufügen"
@@ -94,7 +96,14 @@
                              VerticalContentAlignment="Center" FontSize="14"
                              BorderBrush="#D0D5DD" BorderThickness="1"/>
                 </StackPanel>
-                <TextBlock x:Name="ErrorTextBlock" Grid.Row="6" Grid.ColumnSpan="3"
+                <StackPanel Grid.Row="6" Grid.ColumnSpan="3" Margin="0,14,0,0">
+                    <TextBlock Text="Stundensatz (Euro pro Stunde, optional)" FontSize="13" FontWeight="SemiBold"
+                               Foreground="#344054" Margin="0,0,0,6"/>
+                    <TextBox x:Name="HourlyRateTextBox" Height="40" Padding="11,0"
+                             VerticalContentAlignment="Center" FontSize="14"
+                             BorderBrush="#D0D5DD" BorderThickness="1"/>
+                </StackPanel>
+                <TextBlock x:Name="ErrorTextBlock" Grid.Row="7" Grid.ColumnSpan="3"
                            Foreground="#B42318" FontSize="12" TextWrapping="Wrap"
                            Margin="0,10,0,0" Visibility="Collapsed"/>
             </Grid>

@@ -71,6 +71,10 @@
                                 MinWidth="145" Height="42" Margin="6,0,0,0"
                                 Style="{StaticResource MenuButtonStyle}"
                                 Click="KundenButton_Click"/>
+                        <Button Name="MitarbeiterBtn" Content="Mitarbeiter"
+                                MinWidth="145" Height="42" Margin="6,0,0,0"
+                                Style="{StaticResource MenuButtonStyle}"
+                                Click="MitarbeiterButton_Click"/>
                         <Button Name="DatenBtn" Content="Zeiteinträge"
                                 MinWidth="145" Height="42" Margin="6,0,0,0"
                                 Style="{StaticResource MenuButtonStyle}"
