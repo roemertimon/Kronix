@@ -468,6 +468,7 @@ public partial class DatenWindow : UserControl
         {
             Id = log.Id,
             ClientNumber = log.ClientNumber,
+            EmployeeNumber = log.EmployeeNumber,
             StartTime = log.StartTime,
             EndTime = log.EndTime,
             IsBilled = options.MarkExportedAsBilled || log.IsBilled,
@@ -477,10 +478,12 @@ public partial class DatenWindow : UserControl
         bool exportCreated = false;
         try
         {
+            Dictionary<string, DatabaseHelper.Customer> exportCustomers = GetExportCustomers(exportLogs);
             if (isXlsx)
             {
                 ExportToXlsx(dialog.FileName, exportLogs, options.SeparateCustomers,
-                    options.IncludeSummary, options.UseDecimalHours,
+                    options.IncludeSummary, options.UseDecimalHours, options.IncludeHourlyRate,
+                    exportCustomers,
                     FromDatePicker.SelectedDate, ToDatePicker.SelectedDate);
                 exportCreated = true;
             }
@@ -490,7 +493,7 @@ public partial class DatenWindow : UserControl
                     dialog.FileName, exportLogs, options.UseDecimalHours,
                     options.SeparateCustomers, options.IncludeSummary,
                     FromDatePicker.SelectedDate, ToDatePicker.SelectedDate,
-                    GetExportCustomerNames(exportLogs));
+                    exportCustomers, options.IncludeHourlyRate);
                 exportCreated = true;
             }
 
@@ -534,9 +537,10 @@ public partial class DatenWindow : UserControl
         }
     }
 
-    private Dictionary<string, string> GetExportCustomerNames(IEnumerable<DatabaseHelper.TimeLog> logs)
+    private Dictionary<string, DatabaseHelper.Customer> GetExportCustomers(
+        IEnumerable<DatabaseHelper.TimeLog> logs)
     {
-        var customerNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var customers = new Dictionary<string, DatabaseHelper.Customer>(StringComparer.OrdinalIgnoreCase);
         foreach (string clientNumber in logs
                      .Select(log => log.ClientNumber)
                      .Where(number => !string.IsNullOrWhiteSpace(number))
@@ -549,15 +553,10 @@ public partial class DatenWindow : UserControl
                 continue;
             }
 
-            string name = string.Join(" · ", new[] { customer.Company, customer.DisplayName }
-                .Where(value => !string.IsNullOrWhiteSpace(value)));
-            if (!string.IsNullOrWhiteSpace(name))
-            {
-                customerNames[clientNumber] = name;
-            }
+            customers[clientNumber] = customer;
         }
 
-        return customerNames;
+        return customers;
     }
 
     private void ExportToXlsx(
@@ -566,6 +565,8 @@ public partial class DatenWindow : UserControl
         bool separateCustomers,
         bool includeSummary,
         bool useDecimalHours,
+        bool includeHourlyRate,
+        IReadOnlyDictionary<string, DatabaseHelper.Customer> customers,
         DateTime? fromDate,
         DateTime? toDate)
     {
@@ -573,7 +574,6 @@ public partial class DatenWindow : UserControl
         var customerGroups = logs.GroupBy(
                 log => string.IsNullOrWhiteSpace(log.ClientNumber) ? "Ohne Kundennummer" : log.ClientNumber)
             .ToList();
-        var worksheetsByCustomer = new Dictionary<string, (IXLWorksheet Worksheet, int FirstDataRow, int TotalRow)>();
         var usedSheetNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         IXLWorksheet? summaryWorksheet = includeSummary
@@ -591,11 +591,10 @@ public partial class DatenWindow : UserControl
                 string sheetName = MakeUniqueSheetName(MakeSafeSheetName(group.Key), usedSheetNames);
                 var worksheet = workbook.Worksheets.Add(sheetName);
                 DatabaseHelper.Customer? customer = GetCustomerForLogs(group);
-                int firstDataRow = 7;
-                int totalRow = WriteWorksheet(
-                    worksheet, group.ToList(), useDecimalHours, customer, includeCustomerHeader: true,
+                WriteWorksheet(
+                    worksheet, group.ToList(), useDecimalHours, includeHourlyRate, customer, customers,
+                    includeCustomerHeader: true,
                     group.Key);
-                worksheetsByCustomer[group.Key] = (worksheet, firstDataRow, totalRow);
             }
         }
         else
@@ -605,20 +604,15 @@ public partial class DatenWindow : UserControl
                 ? GetCustomerForLogs(customerGroups[0])
                 : null;
             IXLWorksheet worksheet = workbook.Worksheets.Add("Zeiteinträge");
-            int firstDataRow = oneCustomer ? 7 : 2;
-            int totalRow = WriteWorksheet(
-                worksheet, logs, useDecimalHours, customer, includeCustomerHeader: oneCustomer,
+            WriteWorksheet(
+                worksheet, logs, useDecimalHours, includeHourlyRate, customer, customers,
+                includeCustomerHeader: oneCustomer,
                 oneCustomer ? customerGroups[0].Key : null);
-            foreach (IGrouping<string, DatabaseHelper.TimeLog> group in customerGroups)
-            {
-                worksheetsByCustomer[group.Key] = (worksheet, firstDataRow, totalRow);
-            }
         }
 
         if (summaryWorksheet is not null)
         {
-            WriteSummaryWorksheet(summaryWorksheet, logs, customerGroups, worksheetsByCustomer,
-                separateCustomers, useDecimalHours, fromDate, toDate);
+            WriteSummaryWorksheet(summaryWorksheet, logs, useDecimalHours, includeHourlyRate, customers, fromDate, toDate);
         }
 
         workbook.SaveAs(path);
@@ -635,11 +629,15 @@ public partial class DatenWindow : UserControl
         IXLWorksheet worksheet,
         IEnumerable<DatabaseHelper.TimeLog> logs,
         bool useDecimalHours,
+        bool includeHourlyRate,
         DatabaseHelper.Customer? customer,
+        IReadOnlyDictionary<string, DatabaseHelper.Customer> customers,
         bool includeCustomerHeader,
         string? clientNumber)
     {
-        string[] headers = ["Kundennummer", "Startzeit", "Endzeit", "Dauer", "Tätigkeit / Notiz", "Abgerechnet"];
+        string[] headers = includeHourlyRate
+            ? ["Kundennummer", "Mitarbeiternummer", "Startzeit", "Endzeit", "Dauer", "Tätigkeit / Notiz", "Abgerechnet", "Stundensatz", "Betrag"]
+            : ["Kundennummer", "Mitarbeiternummer", "Startzeit", "Endzeit", "Dauer", "Tätigkeit / Notiz", "Abgerechnet"];
         int headerRow = includeCustomerHeader ? 6 : 1;
         if (includeCustomerHeader)
         {
@@ -656,40 +654,65 @@ public partial class DatenWindow : UserControl
         foreach (DatabaseHelper.TimeLog log in logs)
         {
             worksheet.Cell(row, 1).Value = log.ClientNumber ?? string.Empty;
+            worksheet.Cell(row, 2).Value = log.EmployeeNumber ?? string.Empty;
             if (log.StartTime is DateTime startTime)
             {
-                worksheet.Cell(row, 2).Value = startTime;
-                worksheet.Cell(row, 2).Style.DateFormat.Format = "dd.mm.yyyy hh:mm";
+                worksheet.Cell(row, 3).Value = startTime;
+                worksheet.Cell(row, 3).Style.DateFormat.Format = "dd.mm.yyyy hh:mm";
             }
 
             if (log.EndTime is DateTime endTime)
             {
-                worksheet.Cell(row, 3).Value = endTime;
-                worksheet.Cell(row, 3).Style.DateFormat.Format = "dd.mm.yyyy hh:mm";
+                worksheet.Cell(row, 4).Value = endTime;
+                worksheet.Cell(row, 4).Style.DateFormat.Format = "dd.mm.yyyy hh:mm";
             }
 
             TimeSpan? duration = GetDuration(log);
             if (duration is TimeSpan value)
             {
-                worksheet.Cell(row, 4).Value = useDecimalHours
+                worksheet.Cell(row, 5).Value = useDecimalHours
                     ? value.TotalHours
                     : value.TotalDays;
-                worksheet.Cell(row, 4).Style.NumberFormat.Format = useDecimalHours ? "0.00" : "[h]:mm";
+                worksheet.Cell(row, 5).Style.NumberFormat.Format = useDecimalHours ? "0.00" : "[h]:mm";
             }
 
-            worksheet.Cell(row, 5).Value = log.Notes ?? string.Empty;
-            worksheet.Cell(row, 6).Value = log.IsBilled ? "Ja" : "Nein";
+            worksheet.Cell(row, 6).Value = log.Notes ?? string.Empty;
+            worksheet.Cell(row, 7).Value = log.IsBilled ? "Ja" : "Nein";
+            DatabaseHelper.Customer? logCustomer = log.ClientNumber is not null &&
+                customers.TryGetValue(log.ClientNumber, out DatabaseHelper.Customer? matchingCustomer)
+                    ? matchingCustomer
+                    : null;
+            if (includeHourlyRate && logCustomer?.HourlyRate is decimal hourlyRate)
+            {
+                worksheet.Cell(row, 8).Value = hourlyRate;
+                worksheet.Cell(row, 8).Style.NumberFormat.Format = "€ #,##0.00";
+                if (duration is TimeSpan billableDuration)
+                {
+                    worksheet.Cell(row, 9).Value = decimal.Round(
+                        (decimal)billableDuration.TotalHours * hourlyRate, 2, MidpointRounding.AwayFromZero);
+                    worksheet.Cell(row, 9).Style.NumberFormat.Format = "€ #,##0.00";
+                }
+            }
             row++;
         }
 
         int lastDataRow = row - 1;
         int totalRow = row;
-        worksheet.Cell(totalRow, 3).Value = "Gesamt";
-        worksheet.Cell(totalRow, 4).FormulaA1 = lastDataRow >= firstDataRow
-            ? $"=SUM(D{firstDataRow}:D{lastDataRow})"
+        worksheet.Cell(totalRow, 4).Value = "Gesamt";
+        worksheet.Cell(totalRow, 5).FormulaA1 = lastDataRow >= firstDataRow
+            ? $"=SUM(E{firstDataRow}:E{lastDataRow})"
             : "=0";
-        worksheet.Cell(totalRow, 4).Style.NumberFormat.Format = useDecimalHours ? "0.00" : "[h]:mm";
-        worksheet.Range(totalRow, 3, totalRow, 4).Style.Font.Bold = true;
+        worksheet.Cell(totalRow, 5).Style.NumberFormat.Format = useDecimalHours ? "0.00" : "[h]:mm";
+        worksheet.Range(totalRow, 4, totalRow, 5).Style.Font.Bold = true;
+        if (includeHourlyRate)
+        {
+            worksheet.Cell(totalRow, 8).Value = "Gesamtbetrag";
+            worksheet.Cell(totalRow, 9).FormulaA1 = lastDataRow >= firstDataRow
+                ? $"=SUM(I{firstDataRow}:I{lastDataRow})"
+                : "=0";
+            worksheet.Cell(totalRow, 9).Style.NumberFormat.Format = "€ #,##0.00";
+            worksheet.Range(totalRow, 8, totalRow, 9).Style.Font.Bold = true;
+        }
 
         var header = worksheet.Range(headerRow, 1, headerRow, headers.Length);
         header.Style.Font.Bold = true;
@@ -697,11 +720,17 @@ public partial class DatenWindow : UserControl
         worksheet.Range(headerRow, 1, Math.Max(headerRow, lastDataRow), headers.Length).SetAutoFilter();
         worksheet.SheetView.FreezeRows(headerRow);
         worksheet.Columns().AdjustToContents();
-        worksheet.Column(5).Width = Math.Min(Math.Max(worksheet.Column(5).Width, 24), 60);
+        worksheet.Column(6).Width = Math.Min(Math.Max(worksheet.Column(6).Width, 24), 60);
         worksheet.Column(1).Width = Math.Max(worksheet.Column(1).Width, 16);
         worksheet.Column(2).Width = Math.Max(worksheet.Column(2).Width, 19);
         worksheet.Column(3).Width = Math.Max(worksheet.Column(3).Width, 19);
-        worksheet.Column(4).Width = Math.Max(worksheet.Column(4).Width, 14);
+        worksheet.Column(4).Width = Math.Max(worksheet.Column(4).Width, 19);
+        worksheet.Column(5).Width = Math.Max(worksheet.Column(5).Width, 14);
+        if (includeHourlyRate)
+        {
+            worksheet.Column(8).Width = Math.Max(worksheet.Column(8).Width, 16);
+            worksheet.Column(9).Width = Math.Max(worksheet.Column(9).Width, 16);
+        }
         return totalRow;
     }
 
@@ -735,10 +764,9 @@ public partial class DatenWindow : UserControl
     private void WriteSummaryWorksheet(
         IXLWorksheet worksheet,
         IReadOnlyCollection<DatabaseHelper.TimeLog> logs,
-        IReadOnlyCollection<IGrouping<string, DatabaseHelper.TimeLog>> customerGroups,
-        IReadOnlyDictionary<string, (IXLWorksheet Worksheet, int FirstDataRow, int TotalRow)> worksheetsByCustomer,
-        bool separateCustomers,
         bool useDecimalHours,
+        bool includeHourlyRate,
+        IReadOnlyDictionary<string, DatabaseHelper.Customer> customers,
         DateTime? fromDate,
         DateTime? toDate)
     {
@@ -759,51 +787,81 @@ public partial class DatenWindow : UserControl
         worksheet.Cell(2, 2).Value = periodStart.HasValue && periodEnd.HasValue
             ? $"{periodStart.Value:dd.MM.yyyy} - {periodEnd.Value:dd.MM.yyyy}"
             : "Keine Einträge";
-        worksheet.Cell(3, 1).Value = "Gesamtstunden";
+        worksheet.Cell(3, 1).Value = useDecimalHours ? "Gesamtstunden" : "Gesamtzeit";
 
-        string[] headers = ["Kundennummer", "Kunde / Firma", "Gesamtstunden (Dezimal)"];
+        string[] headers = includeHourlyRate
+            ? [
+                "Kundennummer", "Kunde / Firma", "Mitarbeiternummer",
+                useDecimalHours ? "Gesamtstunden (Industriestunden)" : "Gesamtzeit (Stunden:Minuten)",
+                "Stundensatz", "Betrag"
+            ]
+            : [
+                "Kundennummer", "Kunde / Firma", "Mitarbeiternummer",
+                useDecimalHours ? "Gesamtstunden (Industriestunden)" : "Gesamtzeit (Stunden:Minuten)"
+            ];
         for (int column = 0; column < headers.Length; column++)
         {
             worksheet.Cell(5, column + 1).Value = headers[column];
         }
 
+        var employeeCustomerGroups = logs.GroupBy(log => (
+            CustomerNumber: string.IsNullOrWhiteSpace(log.ClientNumber) ? "Ohne Kundennummer" : log.ClientNumber,
+            EmployeeNumber: string.IsNullOrWhiteSpace(log.EmployeeNumber) ? "—" : log.EmployeeNumber));
         int row = 6;
-        foreach (IGrouping<string, DatabaseHelper.TimeLog> group in customerGroups)
+        foreach (IGrouping<(string CustomerNumber, string EmployeeNumber), DatabaseHelper.TimeLog> group
+                 in employeeCustomerGroups)
         {
-            DatabaseHelper.Customer? customer = string.Equals(group.Key, "Ohne Kundennummer", StringComparison.Ordinal)
+            DatabaseHelper.Customer? customer = string.Equals(group.Key.CustomerNumber, "Ohne Kundennummer", StringComparison.Ordinal)
                 ? null
-                : _dbHelper.GetCustomer(group.Key);
+                : _dbHelper.GetCustomer(group.Key.CustomerNumber);
 
-            worksheet.Cell(row, 1).Value = group.Key;
+            worksheet.Cell(row, 1).Value = group.Key.CustomerNumber;
             string customerName = customer is null
                 ? string.Empty
                 : string.Join(" · ", new[] { customer.Company, customer.DisplayName }
                     .Where(value => !string.IsNullOrWhiteSpace(value)));
-            worksheet.Cell(row, 2).Value = string.IsNullOrWhiteSpace(customerName) ? group.Key : customerName;
-
-            (IXLWorksheet detailWorksheet, int firstDataRow, int totalRow) = worksheetsByCustomer[group.Key];
-            string sheetReference = $"'{detailWorksheet.Name.Replace("'", "''")}'";
-            string multiplier = useDecimalHours ? string.Empty : "*24";
-            if (separateCustomers)
+            worksheet.Cell(row, 2).Value =
+                string.IsNullOrWhiteSpace(customerName) ? group.Key.CustomerNumber : customerName;
+            worksheet.Cell(row, 3).Value = group.Key.EmployeeNumber;
+            TimeSpan totalDuration = TimeSpan.FromTicks(group.Sum(log => GetDuration(log)?.Ticks ?? 0));
+            worksheet.Cell(row, 4).Value = useDecimalHours
+                ? totalDuration.TotalHours
+                : totalDuration.TotalDays;
+            worksheet.Cell(row, 4).Style.NumberFormat.Format = useDecimalHours ? "0.00" : "[h]:mm";
+            if (includeHourlyRate)
             {
-                worksheet.Cell(row, 3).FormulaA1 = $"={sheetReference}!D{totalRow}{multiplier}";
+                customers.TryGetValue(group.Key.CustomerNumber, out DatabaseHelper.Customer? rateCustomer);
+                if (rateCustomer?.HourlyRate is decimal hourlyRate)
+                {
+                    worksheet.Cell(row, 5).Value = hourlyRate;
+                    worksheet.Cell(row, 5).Style.NumberFormat.Format = "€ #,##0.00";
+                    decimal amount = group.Sum(log =>
+                    {
+                        TimeSpan? duration = GetDuration(log);
+                        return duration is TimeSpan value
+                            ? decimal.Round((decimal)value.TotalHours * hourlyRate, 2, MidpointRounding.AwayFromZero)
+                            : 0m;
+                    });
+                    worksheet.Cell(row, 6).Value = amount;
+                    worksheet.Cell(row, 6).Style.NumberFormat.Format = "€ #,##0.00";
+                }
             }
-            else
-            {
-                int finalDataRow = totalRow - 1;
-                worksheet.Cell(row, 3).FormulaA1 =
-                    $"=SUMIF({sheetReference}!$A${firstDataRow}:$A${finalDataRow},A{row},{sheetReference}!$D${firstDataRow}:$D${finalDataRow}){multiplier}";
-            }
-
-            worksheet.Cell(row, 3).Style.NumberFormat.Format = "0.00";
             row++;
         }
 
         int lastCustomerRow = row - 1;
         worksheet.Cell(3, 2).FormulaA1 = lastCustomerRow >= 6
-            ? $"=SUM(C6:C{lastCustomerRow})"
+            ? $"=SUM(D6:D{lastCustomerRow})"
             : "=0";
-        worksheet.Cell(3, 2).Style.NumberFormat.Format = "0.00";
+        worksheet.Cell(3, 2).Style.NumberFormat.Format = useDecimalHours ? "0.00" : "[h]:mm";
+        if (includeHourlyRate)
+        {
+            worksheet.Cell(3, 3).Value = "Gesamtbetrag";
+            worksheet.Cell(3, 4).FormulaA1 = lastCustomerRow >= 6
+                ? $"=SUM(F6:F{lastCustomerRow})"
+                : "=0";
+            worksheet.Cell(3, 4).Style.NumberFormat.Format = "€ #,##0.00";
+        }
         worksheet.Range(5, 1, 5, headers.Length).Style.Font.Bold = true;
         worksheet.Range(5, 1, 5, headers.Length).Style.Fill.BackgroundColor = XLColor.FromHtml("#EAF0F6");
         if (lastCustomerRow >= 5)
@@ -814,7 +872,13 @@ public partial class DatenWindow : UserControl
         worksheet.SheetView.FreezeRows(5);
         worksheet.Columns().AdjustToContents();
         worksheet.Column(2).Width = Math.Min(Math.Max(worksheet.Column(2).Width, 24), 60);
-        worksheet.Column(3).Width = Math.Max(worksheet.Column(3).Width, 26);
+        worksheet.Column(3).Width = Math.Max(worksheet.Column(3).Width, 19);
+        worksheet.Column(4).Width = Math.Max(worksheet.Column(4).Width, 32);
+        if (includeHourlyRate)
+        {
+            worksheet.Column(5).Width = Math.Max(worksheet.Column(5).Width, 16);
+            worksheet.Column(6).Width = Math.Max(worksheet.Column(6).Width, 16);
+        }
     }
 
 
@@ -867,6 +931,28 @@ public partial class DatenWindow : UserControl
 
     private void AddManualEntryButton_Click(object sender, RoutedEventArgs e)
     {
+        string? employeeNumber;
+        try
+        {
+            employeeNumber = _dbHelper.GetCurrentEmployeeNumber();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("timelog.current_employee_read_failed",
+                "Could not read the current employee before creating a manual time entry.", ex);
+            ShowError("Mitarbeiter konnte nicht geladen werden", ex.Message);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(employeeNumber))
+        {
+            AppLogger.Warning("timelog.manual_create_without_employee",
+                "Manual time-entry creation was rejected because no current employee was selected.");
+            ShowError("Kein aktueller Mitarbeiter",
+                "Bitte legen Sie im Mitarbeiter-Tab zuerst einen Mitarbeiter an und wählen Sie ihn als aktuell aus.");
+            return;
+        }
+
         var editor = new EditTimeLogWindow
         {
             Owner = Window.GetWindow(this)
@@ -898,7 +984,8 @@ public partial class DatenWindow : UserControl
                 throw new InvalidOperationException("Bitte geben Sie eine gültige Endzeit an.");
             }
 
-            _dbHelper.AddManualTimeLog(editor.ClientNumber, editor.StartTime, endTime, editor.Notes);
+            _dbHelper.AddManualTimeLog(editor.ClientNumber, editor.StartTime, endTime, editor.Notes,
+                employeeNumber);
             LoadAllTimeLogs();
             AppLogger.Information("timelog.created_manually", "Created a time entry manually.");
         }

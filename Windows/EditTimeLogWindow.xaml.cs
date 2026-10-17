@@ -64,12 +64,6 @@ public partial class EditTimeLogWindow : Window
             ShowValidationError("Bitte geben Sie eine Kundennummer ein.");
             return;
         }
-        if (IsNewEntry && !int.TryParse(clientNumber, out _))
-        {
-            ShowValidationError("Die Kundennummer muss eine Zahl sein.");
-            return;
-        }
-
         if (!TryGetDateTime(StartDatePicker, StartTimeTextBox, out DateTime startTime))
         {
             ShowValidationError("Bitte geben Sie ein gültiges Startdatum und eine Uhrzeit im Format HH:mm ein.");

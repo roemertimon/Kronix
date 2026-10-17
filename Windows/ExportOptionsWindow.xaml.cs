@@ -10,6 +10,7 @@ public partial class ExportOptionsWindow : Window
     public bool IncludeSummary => IncludeSummaryCheckBox.IsChecked == true;
     public bool UseDecimalHours => DecimalHoursRadioButton.IsChecked == true;
     public bool MarkExportedAsBilled => MarkExportedAsBilledCheckBox.IsChecked == true;
+    public bool IncludeHourlyRate => IncludeHourlyRateCheckBox.IsChecked == true;
 
     public ExportOptionsWindow()
     {

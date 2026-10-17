@@ -59,6 +59,13 @@
                 <TextBlock Text="Setzt den Abgerechnet-Haken für alle erfolgreich exportierten Einträge."
                            FontSize="12" Foreground="#667085"
                            TextWrapping="Wrap" Margin="24,4,0,0"/>
+                <CheckBox x:Name="IncludeHourlyRateCheckBox"
+                          Content="Stundensatz und Gesamtbetrag exportieren"
+                          FontSize="14" Foreground="#344054"
+                          IsChecked="False" Margin="0,16,0,0"/>
+                <TextBlock Text="Berechnet den Betrag aus Dauer × Kunden-Stundensatz und ergänzt Summen."
+                           FontSize="12" Foreground="#667085"
+                           TextWrapping="Wrap" Margin="24,4,0,0"/>
 
                 <TextBlock Text="Zeitformat" FontSize="13" FontWeight="SemiBold"
                            Foreground="#344054" Margin="0,20,0,8"/>
