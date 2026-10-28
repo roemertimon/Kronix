@@ -83,7 +83,13 @@ public partial class Zeiterfassung : UserControl
     private void Zeiterfassung_Unloaded(object sender, RoutedEventArgs e)
     {
         _timer.Stop();
-        SaveActiveNotes();
+        // The entry may have been stopped elsewhere (tray, other PC); never show an error while unloading.
+        SaveActiveNotes(silent: true);
+    }
+
+    public void FlushNotes()
+    {
+        SaveActiveNotes(silent: true);
     }
 
     private void StartButton_Click(object sender, RoutedEventArgs e)
@@ -424,7 +430,7 @@ public partial class Zeiterfassung : UserControl
         SaveActiveNotes();
     }
 
-    private bool SaveActiveNotes()
+    private bool SaveActiveNotes(bool silent = false)
     {
         _notesSaveTimer.Stop();
         if (_activeTimeLogId is not int timeLogId)
@@ -441,6 +447,11 @@ public partial class Zeiterfassung : UserControl
         catch (Exception ex)
         {
             AppLogger.Error("timelog.notes_save_failed", "Could not save notes for the active time entry.", ex);
+            if (silent)
+            {
+                return false;
+            }
+
             ShowError("Notiz nicht gespeichert", ex.Message);
             return false;
         }

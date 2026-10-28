@@ -166,6 +166,9 @@ public partial class DashboardWindow : Window
                 return;
             }
 
+            // Persist pending note edits before the entry is closed.
+            (MainContentControl.Content as Zeiterfassung)?.FlushNotes();
+
             if (!_dbHelper.StopTimeLog(openLog.Id, DateTime.Now))
             {
                 throw new InvalidOperationException("Der laufende Zeiteintrag wurde nicht gefunden.");
