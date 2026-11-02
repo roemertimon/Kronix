@@ -37,10 +37,10 @@ public class InstanceAndHotkeyTests
     public void Hotkey_SerializeAndParse_RoundTrips()
     {
         var hotkey = Hotkey.Default;
-        Assert.Equal("Ctrl+Alt+Shift+K", hotkey.Serialize());
+        Assert.Equal("Ctrl+Alt+K", hotkey.Serialize());
         Assert.True(Hotkey.TryParse(hotkey.Serialize(), out Hotkey? parsed));
         Assert.Equal(hotkey, parsed);
-        Assert.Equal("Strg+Alt+Umschalt+K", hotkey.ToString());
+        Assert.Equal("Strg+Alt+K", hotkey.ToString());
     }
 
     [Theory]
