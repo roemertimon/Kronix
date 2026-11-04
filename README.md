@@ -44,7 +44,7 @@ To build without starting the application:
 dotnet build Kronix.sln
 ```
 
-The .NET SDK restores the NuGet dependencies during the first build. Run the tests with `dotnet test Kronix.sln`. Every push is built and tested by GitHub Actions, which also publishes a self-contained Windows build as a workflow artifact.
+The .NET SDK restores the NuGet dependencies during the first build. Run the tests with `dotnet test Kronix.sln`. To just run Kronix, download `Kronix-win-x64.zip` from the [Releases](../../releases) page; it is self-contained and needs no .NET install. Every push is built and tested by GitHub Actions, which also publishes a self-contained Windows build as a workflow artifact.
 
 ## Using Kronix
 
