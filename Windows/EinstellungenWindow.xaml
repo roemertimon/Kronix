@@ -143,7 +143,7 @@
                                  IsReadOnlyCaretVisible="False" Margin="0,0,8,8"
                                  AutomationProperties.Name="Tastenkombination"
                                  PreviewKeyDown="HotkeyTextBox_PreviewKeyDown"/>
-                        <Button Content="Standard (Strg+Alt+Umschalt+K)" Style="{StaticResource ActionButton}"
+                        <Button Content="Standard (Strg+Alt+K)" Style="{StaticResource ActionButton}"
                                 Margin="0,0,8,8" Click="ResetHotkeyButton_Click"/>
                         <Button Content="Deaktivieren" Style="{StaticResource ActionButton}"
                                 Margin="0,0,8,8" Click="DisableHotkeyButton_Click"/>

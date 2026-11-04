@@ -18,9 +18,9 @@ public enum HotkeyModifiers : uint
 /// <summary>A global hotkey: modifier flags (Win32 MOD_* values) plus a key.</summary>
 public sealed record Hotkey(HotkeyModifiers Modifiers, Key Key)
 {
-    /// <summary>Uncommon on purpose: not used by Windows itself and rarely by other programs.</summary>
+    /// <summary>Easy to press and not used by Windows itself.</summary>
     public static Hotkey Default { get; } = new(
-        HotkeyModifiers.Control | HotkeyModifiers.Alt | HotkeyModifiers.Shift, Key.K);
+        HotkeyModifiers.Control | HotkeyModifiers.Alt, Key.K);
 
     public uint VirtualKey => (uint)KeyInterop.VirtualKeyFromKey(Key);
 
