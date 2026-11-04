@@ -18,7 +18,7 @@
                 <Setter Property="FontFamily" Value="Segoe UI"/>
                 <Setter Property="FontSize" Value="14"/>
                 <Setter Property="FontWeight" Value="SemiBold"/>
-                <Setter Property="Padding" Value="24,0"/>
+                <Setter Property="Padding" Value="8,0"/>
                 <Setter Property="Cursor" Value="Hand"/>
                 <Setter Property="Template">
                     <Setter.Value>
@@ -53,37 +53,37 @@
                 </Grid.RowDefinitions>
                 <Grid Grid.Row="0" Margin="20,10">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="150"/>
+                        <ColumnDefinition Width="140"/>
                         <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="150"/>
+                        <ColumnDefinition Width="140"/>
                     </Grid.ColumnDefinitions>
                     <Image Source="pack://application:,,,/Resources/Kronix_logo_name.jpg"
                            Width="132" Height="40" Stretch="Uniform"
                            RenderOptions.BitmapScalingMode="HighQuality"
                            HorizontalAlignment="Left" VerticalAlignment="Center"
                            ToolTip="Kronix"/>
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
+                    <UniformGrid Grid.Column="1" Rows="1" MaxWidth="780" HorizontalAlignment="Center">
                         <Button Name="ZeiterfassungBtn" Content="Zeiterfassung"
-                                MinWidth="145" Height="42"
+                                Height="42" Margin="3,0"
                                 Style="{StaticResource MenuButtonStyle}"
                                 Click="ZeiterfassungButton_Click"/>
                         <Button Name="KundenBtn" Content="Kunden"
-                                MinWidth="145" Height="42" Margin="6,0,0,0"
+                                Height="42" Margin="3,0"
                                 Style="{StaticResource MenuButtonStyle}"
                                 Click="KundenButton_Click"/>
                         <Button Name="MitarbeiterBtn" Content="Mitarbeiter"
-                                MinWidth="145" Height="42" Margin="6,0,0,0"
+                                Height="42" Margin="3,0"
                                 Style="{StaticResource MenuButtonStyle}"
                                 Click="MitarbeiterButton_Click"/>
                         <Button Name="DatenBtn" Content="Zeiteinträge"
-                                MinWidth="145" Height="42" Margin="6,0,0,0"
+                                Height="42" Margin="3,0"
                                 Style="{StaticResource MenuButtonStyle}"
                                 Click="DatenButton_Click"/>
                         <Button Name="EinstellungenBtn" Content="Einstellungen"
-                                MinWidth="145" Height="42" Margin="6,0,0,0"
+                                Height="42" Margin="3,0"
                                 Style="{StaticResource MenuButtonStyle}"
                                 Click="EinstellungenButton_Click"/>
-                    </StackPanel>
+                    </UniformGrid>
                 </Grid>
                 <Border x:Name="DatabaseWarningBorder" Grid.Row="1"
                         Background="#FFF4E5" Padding="18,8"
