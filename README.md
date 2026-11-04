@@ -2,7 +2,7 @@
 
 [![Windows build](https://github.com/roemertimon/Kronix/actions/workflows/build.yml/badge.svg)](https://github.com/roemertimon/Kronix/actions/workflows/build.yml)
 ![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
-![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue)
+![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-orange)
 
 **Kronix** is a Windows desktop application for tracking work hours and managing customer records. It includes a customer directory, a timer, searchable time entries, billing status, and Excel and PDF exports.
 
@@ -143,7 +143,6 @@ PDFsharp 6.5.0 uses its free AGPL license in Kronix. Distributions must comply w
 
 ## License
 
-Kronix is licensed under the GNU General Public License v3.0. You may use, modify, and redistribute it under the terms of the GPL. If you distribute Kronix, you must comply with the license requirements, including providing the corresponding source code when required. Copyright notices must be retained. See [LICENSE](LICENSE) for the full terms.
+Kronix is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE). You may use, study and modify it for personal, educational and other noncommercial purposes. **Commercial use requires my prior written approval** - contact me via [GitHub](https://github.com/roemertimon).
 
-Third-party libraries retain their own licenses; the GPL does not replace the terms that apply to those dependencies.
-The license does not grant rights to use Kronix branding or logos.
+Third-party libraries retain their own licenses. The license does not grant rights to use Kronix branding or logos.
