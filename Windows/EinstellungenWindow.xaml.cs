@@ -3,7 +3,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using Kronix.Logging;
+using Kronix.Services;
 using Kronix.Database;
 using Microsoft.Win32;
 
@@ -19,6 +21,75 @@ public partial class EinstellungenWindow : UserControl
         _dbHelper = dbHelper;
         LogPathTextBlock.Text = AppLogger.LogFilePath;
         RefreshDatabaseInfo();
+        RefreshHotkeyDisplay();
+    }
+
+    private void RefreshHotkeyDisplay()
+    {
+        HotkeyTextBox.Text = GlobalHotkeyService.Current?.ToString() ?? "Deaktiviert";
+    }
+
+    private void HotkeyTextBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        e.Handled = true;
+        Key key = e.Key switch
+        {
+            Key.System => e.SystemKey,
+            Key.ImeProcessed => e.ImeProcessedKey,
+            _ => e.Key
+        };
+
+        if (Hotkey.IsModifierKey(key))
+        {
+            return;
+        }
+
+        HotkeyModifiers modifiers = HotkeyModifiers.None;
+        ModifierKeys pressed = Keyboard.Modifiers;
+        if (pressed.HasFlag(ModifierKeys.Control)) modifiers |= HotkeyModifiers.Control;
+        if (pressed.HasFlag(ModifierKeys.Alt)) modifiers |= HotkeyModifiers.Alt;
+        if (pressed.HasFlag(ModifierKeys.Shift)) modifiers |= HotkeyModifiers.Shift;
+        if (pressed.HasFlag(ModifierKeys.Windows)) modifiers |= HotkeyModifiers.Win;
+
+        if (modifiers == HotkeyModifiers.None)
+        {
+            SetHotkeyStatus("Bitte mindestens Strg, Alt, Umschalt oder Win zusammen mit einer Taste drücken.", true);
+            return;
+        }
+
+        if (new Hotkey(modifiers, key).VirtualKey == 0)
+        {
+            SetHotkeyStatus("Diese Taste wird nicht unterstützt.", true);
+            return;
+        }
+
+        ApplyHotkey(new Hotkey(modifiers, key));
+    }
+
+    private void ResetHotkeyButton_Click(object sender, RoutedEventArgs e) => ApplyHotkey(Hotkey.Default);
+
+    private void DisableHotkeyButton_Click(object sender, RoutedEventArgs e) => ApplyHotkey(null);
+
+    private void ApplyHotkey(Hotkey? hotkey)
+    {
+        string? error = GlobalHotkeyService.Change(hotkey);
+        RefreshHotkeyDisplay();
+        if (error is not null)
+        {
+            SetHotkeyStatus(error, true);
+            return;
+        }
+
+        SetHotkeyStatus(hotkey is null ? "Tastenkombination deaktiviert." : $"Gespeichert: {hotkey}", false);
+        AppLogger.Information("settings.hotkey_changed", "The global hotkey setting was changed.");
+    }
+
+    private void SetHotkeyStatus(string message, bool isError)
+    {
+        HotkeyStatusTextBlock.Text = message;
+        HotkeyStatusTextBlock.Foreground = isError
+            ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(180, 35, 24))
+            : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(40, 112, 77));
     }
 
     private void RefreshDatabaseInfo()

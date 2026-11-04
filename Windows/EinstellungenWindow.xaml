@@ -27,6 +27,7 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <StackPanel Grid.Row="0" Margin="0,0,0,18">
@@ -128,7 +129,31 @@
                 </StackPanel>
             </Border>
 
-            <Border Grid.Row="4" Background="#EEF7F2" CornerRadius="10"
+            <Border Grid.Row="4" Background="White" CornerRadius="12" Padding="20"
+                    BorderBrush="#E6EBF0" BorderThickness="1" Margin="0,0,0,14">
+                <StackPanel>
+                    <TextBlock Text="Tastenkombination zum Öffnen" FontSize="17"
+                               FontWeight="SemiBold" Foreground="{StaticResource NavyBrush}"/>
+                    <TextBlock Text="Mit dieser Tastenkombination holst du Kronix aus dem Infobereich zurück (nochmaliges Drücken blendet es wieder aus). Sie gilt nur an diesem PC. Zum Ändern in das Feld klicken und die neue Kombination drücken."
+                               FontSize="13" Foreground="{StaticResource MutedBrush}"
+                               TextWrapping="Wrap" Margin="0,6,0,12"/>
+                    <WrapPanel>
+                        <TextBox x:Name="HotkeyTextBox" Width="240" Height="40" IsReadOnly="True"
+                                 VerticalContentAlignment="Center" Padding="10,0" FontSize="14"
+                                 IsReadOnlyCaretVisible="False" Margin="0,0,8,8"
+                                 AutomationProperties.Name="Tastenkombination"
+                                 PreviewKeyDown="HotkeyTextBox_PreviewKeyDown"/>
+                        <Button Content="Standard (Strg+Alt+Umschalt+K)" Style="{StaticResource ActionButton}"
+                                Margin="0,0,8,8" Click="ResetHotkeyButton_Click"/>
+                        <Button Content="Deaktivieren" Style="{StaticResource ActionButton}"
+                                Margin="0,0,8,8" Click="DisableHotkeyButton_Click"/>
+                    </WrapPanel>
+                    <TextBlock x:Name="HotkeyStatusTextBlock" FontSize="12" TextWrapping="Wrap"
+                               Foreground="{StaticResource MutedBrush}"/>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Row="5" Background="#EEF7F2" CornerRadius="10"
                     Padding="14" BorderBrush="#D4EBDD" BorderThickness="1">
                 <TextBlock x:Name="DatabaseStatusTextBlock" Text="Datenbankstatus wird geprüft."
                            FontSize="13" Foreground="#28704D" TextWrapping="Wrap"/>

@@ -4,6 +4,7 @@ using System.Windows;
 using WinForms = System.Windows.Forms;
 using Kronix.Database;
 using Kronix.Logging;
+using Kronix.Services;
 
 namespace Kronix.Windows;
 
@@ -22,6 +23,11 @@ public partial class DashboardWindow : Window
         this._dbHelper = dbHelper;
         _trayOwner = this;
         EnsureTrayIcon();
+        string? hotkeyError = GlobalHotkeyService.Start(ToggleFromHotkey);
+        if (hotkeyError is not null)
+        {
+            _notifyIcon?.ShowBalloonTip(5000, "Kronix", hotkeyError, WinForms.ToolTipIcon.Warning);
+        }
 
         _dbHelper.DatabaseStateChanged += DatabaseStateChanged;
         ShowZeiterfassung();
@@ -40,15 +46,63 @@ public partial class DashboardWindow : Window
         HideToTray();
     }
 
-    private void HideToTray()
+    private void HideToTray(bool showToast = true)
     {
+        // Hiding a minimized window leaves it stuck minimized when shown again, so normalize first.
+        if (WindowState == WindowState.Minimized)
+        {
+            WindowState = WindowState.Normal;
+        }
+
         Hide();
         ShowInTaskbar = false;
         if (_notifyIcon != null)
         {
             _notifyIcon.Visible = true;
         }
-        ShowMessage();
+
+        if (showToast)
+        {
+            ShowMessage();
+        }
+    }
+
+    /// <summary>Brings the dashboard to the front from outside (second launch). False if it does not exist yet.</summary>
+    public static bool RestoreFromExternal()
+    {
+        if (_trayOwner is null)
+        {
+            return false;
+        }
+
+        _trayOwner.ShowWindow();
+        return true;
+    }
+
+    private void ToggleFromHotkey()
+    {
+        // Don't hide the window while the user records a new combination in the settings.
+        if (System.Windows.Input.Keyboard.FocusedElement is FrameworkElement { Name: "HotkeyTextBox" })
+        {
+            return;
+        }
+
+        if (IsVisible && IsActive && WindowState != WindowState.Minimized)
+        {
+            HideToTray(showToast: false);
+        }
+        else
+        {
+            ShowWindow();
+        }
+    }
+
+    public static void DisposeTray()
+    {
+        GlobalHotkeyService.Stop();
+        _notifyIcon?.Dispose();
+        _notifyIcon = null;
+        _stopTrackingMenuItem = null;
     }
     
     private void ShowMessage()
@@ -139,13 +193,35 @@ public partial class DashboardWindow : Window
     // Method to show the main window from the tray
     private void ShowWindow()
     {
-        Show();
         WindowState = WindowState.Normal;
         ShowInTaskbar = true;
+        if (!IsVisible)
+        {
+            Show();
+        }
+
         if (_notifyIcon != null)
         {
             _notifyIcon.Visible = true;
         }
+
+        BringToFront();
+    }
+
+    private void BringToFront()
+    {
+        // Windows blocks focus stealing; a short Topmost toggle plus SetForegroundWindow reliably raises it.
+        NativeMethods.AllowSetForegroundWindow(NativeMethods.ASFW_ANY);
+        Activate();
+        Topmost = true;
+        Topmost = false;
+        IntPtr handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        if (handle != IntPtr.Zero)
+        {
+            NativeMethods.SetForegroundWindow(handle);
+        }
+
+        Focus();
     }
 
     // Method to exit the application from the tray
@@ -161,9 +237,7 @@ public partial class DashboardWindow : Window
         _dbHelper.DatabaseStateChanged -= DatabaseStateChanged;
         if (_allowClose && ReferenceEquals(_trayOwner, this))
         {
-            _notifyIcon?.Dispose();
-            _notifyIcon = null;
-            _stopTrackingMenuItem = null;
+            DisposeTray();
             _trayOwner = null;
             AppLogger.Information("application.exit_requested", "The application was closed from the system tray.");
         }
@@ -281,5 +355,12 @@ public partial class DashboardWindow : Window
         contextMenu.Opening += (_, _) => _trayOwner?.UpdateTrayMenu();
         _notifyIcon.ContextMenuStrip = contextMenu;
         _notifyIcon.DoubleClick += (_, _) => _trayOwner?.ShowWindow();
+        _notifyIcon.MouseClick += (_, args) =>
+        {
+            if (args.Button == WinForms.MouseButtons.Left)
+            {
+                _trayOwner?.ShowWindow();
+            }
+        };
     }
 }
