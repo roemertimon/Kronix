@@ -3,12 +3,13 @@ name: Windows build
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
     branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-and-test:
@@ -48,3 +49,15 @@ jobs:
           path: artifacts\Kronix-win-x64\
           if-no-files-found: error
           retention-days: 14
+
+      - name: Zip release build
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: Compress-Archive -Path artifacts\Kronix-win-x64\* -DestinationPath Kronix-win-x64.zip
+
+      - name: Create GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Kronix-win-x64.zip
+          generate_release_notes: true
