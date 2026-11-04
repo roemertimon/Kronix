@@ -67,6 +67,7 @@ public class DatabaseHelper
     private string _connectionString;
     private readonly Action<string>? _reportStatus;
     private readonly string _databasePathSettingPath;
+    private readonly string _currentEmployeePath;
     private bool _isDatabaseInitialized;
     private bool _hasActiveTimeLog;
     public string? InitializationError { get; private set; }
@@ -76,6 +77,9 @@ public class DatabaseHelper
     {
         _reportStatus = reportStatus;
         _databasePathSettingPath = databasePathSettingPath ?? GetDatabaseConfigurationPath();
+        _currentEmployeePath = Path.Combine(
+            Path.GetDirectoryName(Path.GetFullPath(_databasePathSettingPath)) ?? string.Empty,
+            "current-employee.txt");
         _reportStatus?.Invoke("Datenbankdatei wird gesucht …");
         string? configuredDbPath = GetConfiguredDatabasePath(_databasePathSettingPath);
         string dbPath;
@@ -595,7 +599,14 @@ public class DatabaseHelper
             }
         }
 
-        CloseOpenTimeLogs(connectionString, DateTime.Now);
+        string? currentEmployee;
+        using (var employeeConnection = new SqliteConnection(connectionString))
+        {
+            employeeConnection.Open();
+            currentEmployee = GetCurrentEmployeeNumber(employeeConnection);
+        }
+
+        CloseOpenTimeLogs(connectionString, DateTime.Now, currentEmployee);
         SaveConfiguredDatabasePath(fullPath);
         _connectionString = connectionString;
         DatabasePath = fullPath;
@@ -694,11 +705,18 @@ public class DatabaseHelper
 
     public TimeLog? GetOpenTimeLog()
     {
+        string? employeeNumber = GetCurrentEmployeeNumber();
+        if (employeeNumber is null)
+        {
+            return null;
+        }
+
         using var connection = new SqliteConnection(_connectionString);
         connection.Open();
         using var command = new SqliteCommand(
-            "SELECT Id, ClientNumber, StartTime, EndTime, IsBilled, Notes, EmployeeNumber FROM TimeLogs WHERE EndTime IS NULL ORDER BY StartTime DESC LIMIT 1",
+            "SELECT Id, ClientNumber, StartTime, EndTime, IsBilled, Notes, EmployeeNumber FROM TimeLogs WHERE EndTime IS NULL AND EmployeeNumber = @employee COLLATE NOCASE ORDER BY StartTime DESC LIMIT 1",
             connection);
+        command.Parameters.AddWithValue("@employee", employeeNumber);
         using var reader = command.ExecuteReader();
 
         return reader.Read() ? ReadTimeLog(reader) : null;
@@ -828,9 +846,10 @@ public class DatabaseHelper
         return updated;
     }
 
+    // Only the current employee's entries are closed, so another workstation's running timer is untouched.
     public int CloseOpenTimeLogs(DateTime endTime)
     {
-        int closedCount = CloseOpenTimeLogs(_connectionString, endTime);
+        int closedCount = CloseOpenTimeLogs(_connectionString, endTime, GetCurrentEmployeeNumber());
         if (closedCount > 0)
         {
             _hasActiveTimeLog = false;
@@ -839,15 +858,21 @@ public class DatabaseHelper
         return closedCount;
     }
 
-    private static int CloseOpenTimeLogs(string connectionString, DateTime endTime)
+    private static int CloseOpenTimeLogs(string connectionString, DateTime endTime, string? employeeNumber)
     {
+        if (employeeNumber is null)
+        {
+            return 0;
+        }
+
         using var connection = new SqliteConnection(connectionString);
         connection.Open();
         using var transaction = connection.BeginTransaction();
         using var selectCommand = new SqliteCommand(
-            "SELECT Id, StartTime FROM TimeLogs WHERE EndTime IS NULL",
+            "SELECT Id, StartTime FROM TimeLogs WHERE EndTime IS NULL AND EmployeeNumber = @employee COLLATE NOCASE",
             connection,
             transaction);
+        selectCommand.Parameters.AddWithValue("@employee", employeeNumber);
         var openEntries = new List<(int Id, DateTime StartTime)>();
         using (var reader = selectCommand.ExecuteReader())
         {
@@ -1174,30 +1199,65 @@ public class DatabaseHelper
             : null;
     }
 
+    // The selected employee is stored per PC (not in the shared database) so several
+    // workstations can use one database with different employees.
     public string? GetCurrentEmployeeNumber()
     {
         using var connection = new SqliteConnection(_connectionString);
         connection.Open();
+        return GetCurrentEmployeeNumber(connection);
+    }
+
+    private string? GetCurrentEmployeeNumber(SqliteConnection connection)
+    {
+        string? number;
+        if (File.Exists(_currentEmployeePath))
+        {
+            number = File.ReadAllText(_currentEmployeePath).Trim();
+        }
+        else
+        {
+            // Databases from earlier versions stored the selection inside the database.
+            using var legacyCommand = new SqliteCommand(
+                "SELECT SettingValue FROM AppSettings WHERE SettingKey = 'CurrentEmployeeNumber'",
+                connection);
+            number = (legacyCommand.ExecuteScalar() as string)?.Trim();
+        }
+
+        if (string.IsNullOrEmpty(number))
+        {
+            return null;
+        }
+
         using var command = new SqliteCommand(
-            "SELECT SettingValue FROM AppSettings WHERE SettingKey = 'CurrentEmployeeNumber'",
+            "SELECT EmployeeNumber FROM Employees WHERE EmployeeNumber = @number COLLATE NOCASE",
             connection);
+        command.Parameters.AddWithValue("@number", number);
         return command.ExecuteScalar() as string;
+    }
+
+    private void WriteCurrentEmployeeNumber(string? employeeNumber)
+    {
+        string? directory = Path.GetDirectoryName(_currentEmployeePath);
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        File.WriteAllText(_currentEmployeePath, employeeNumber?.Trim() ?? string.Empty);
     }
 
     public void SetCurrentEmployeeNumber(string? employeeNumber)
     {
-        using var connection = new SqliteConnection(_connectionString);
-        connection.Open();
         if (string.IsNullOrWhiteSpace(employeeNumber))
         {
-            using var clearCommand = new SqliteCommand(
-                "DELETE FROM AppSettings WHERE SettingKey = 'CurrentEmployeeNumber'",
-                connection);
-            clearCommand.ExecuteNonQuery();
+            WriteCurrentEmployeeNumber(null);
             return;
         }
 
         string normalizedNumber = employeeNumber.Trim();
+        using var connection = new SqliteConnection(_connectionString);
+        connection.Open();
         using var existsCommand = new SqliteCommand(
             "SELECT EXISTS(SELECT 1 FROM Employees WHERE EmployeeNumber = @number COLLATE NOCASE)",
             connection);
@@ -1207,12 +1267,7 @@ public class DatabaseHelper
             throw new InvalidOperationException("Der ausgewählte Mitarbeiter wurde nicht gefunden.");
         }
 
-        using var command = new SqliteCommand(
-            "INSERT INTO AppSettings (SettingKey, SettingValue) VALUES ('CurrentEmployeeNumber', @number) " +
-            "ON CONFLICT(SettingKey) DO UPDATE SET SettingValue = excluded.SettingValue",
-            connection);
-        command.Parameters.AddWithValue("@number", normalizedNumber);
-        command.ExecuteNonQuery();
+        WriteCurrentEmployeeNumber(normalizedNumber);
     }
 
     public int GetTimeLogCountForEmployee(string employeeNumber)
@@ -1234,6 +1289,7 @@ public class DatabaseHelper
         }
 
         string number = employee.EmployeeNumber.Trim();
+        string? renamedFrom = null;
         using var connection = new SqliteConnection(_connectionString);
         connection.Open();
         using var transaction = connection.BeginTransaction();
@@ -1258,12 +1314,7 @@ public class DatabaseHelper
             updateLogs.Parameters.AddWithValue("@original", originalEmployeeNumber.Trim());
             updateLogs.ExecuteNonQuery();
 
-            using var updateCurrent = new SqliteCommand(
-                "UPDATE AppSettings SET SettingValue = @number WHERE SettingKey = 'CurrentEmployeeNumber' AND SettingValue = @original COLLATE NOCASE",
-                connection, transaction);
-            updateCurrent.Parameters.AddWithValue("@number", number);
-            updateCurrent.Parameters.AddWithValue("@original", originalEmployeeNumber.Trim());
-            updateCurrent.ExecuteNonQuery();
+            renamedFrom = originalEmployeeNumber.Trim();
         }
         else
         {
@@ -1274,17 +1325,19 @@ public class DatabaseHelper
             insertEmployee.ExecuteNonQuery();
         }
 
-        if (makeCurrent)
-        {
-            using var setCurrent = new SqliteCommand(
-                "INSERT INTO AppSettings (SettingKey, SettingValue) VALUES ('CurrentEmployeeNumber', @number) " +
-                "ON CONFLICT(SettingKey) DO UPDATE SET SettingValue = excluded.SettingValue",
-                connection, transaction);
-            setCurrent.Parameters.AddWithValue("@number", number);
-            setCurrent.ExecuteNonQuery();
-        }
-
         transaction.Commit();
+
+        if (makeCurrent ||
+            (renamedFrom is not null &&
+             string.Equals(GetStoredEmployeeNumber(), renamedFrom, StringComparison.OrdinalIgnoreCase)))
+        {
+            WriteCurrentEmployeeNumber(number);
+        }
+    }
+
+    private string? GetStoredEmployeeNumber()
+    {
+        return File.Exists(_currentEmployeePath) ? File.ReadAllText(_currentEmployeePath).Trim() : null;
     }
 
     public void DeleteEmployee(string employeeNumber)
@@ -1314,12 +1367,12 @@ public class DatabaseHelper
             throw new InvalidOperationException("Der Mitarbeiter wurde nicht gefunden.");
         }
 
-        using var clearCurrent = new SqliteCommand(
-            "DELETE FROM AppSettings WHERE SettingKey = 'CurrentEmployeeNumber' AND SettingValue = @number COLLATE NOCASE",
-            connection, transaction);
-        clearCurrent.Parameters.AddWithValue("@number", employeeNumber.Trim());
-        clearCurrent.ExecuteNonQuery();
         transaction.Commit();
+
+        if (string.Equals(GetStoredEmployeeNumber(), employeeNumber.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            WriteCurrentEmployeeNumber(null);
+        }
     }
 
     private static void AddEmployeeParameters(SqliteCommand command, Employee employee, string employeeNumber)
