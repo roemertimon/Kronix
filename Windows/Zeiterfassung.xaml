@@ -172,7 +172,9 @@
                              FontFamily="Segoe UI" FontSize="14"
                              Background="#FBFCFD" Foreground="#1D2939"
                              BorderBrush="#D0D5DD" BorderThickness="1"
-                             ToolTip="Notiz wird während der Zeiterfassung automatisch gespeichert"
+                             ToolTip="Notiz wird automatisch gespeichert. Vorschläge aus früheren Tätigkeiten mit Tab übernehmen."
+                             PreviewKeyDown="NotesTextBox_PreviewKeyDown"
+                             GotFocus="NotesTextBox_GotFocus"
                              TextChanged="NotesTextBox_TextChanged"/>
 
                     <Border Background="#E9EDF1" CornerRadius="10" Padding="18"

@@ -172,7 +172,7 @@ public partial class KundenWindow : UserControl
 
     private void ShowCustomerEditor(DatabaseHelper.Customer? customer)
     {
-        var editor = new CustomerEditorWindow(customer)
+        var editor = new CustomerEditorWindow(customer, templates: customer is null ? _dbHelper.GetAllCustomers() : null)
         {
             Owner = Window.GetWindow(this)
         };

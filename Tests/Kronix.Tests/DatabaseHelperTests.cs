@@ -48,6 +48,18 @@ public sealed class DatabaseHelperTests : IDisposable
     }
 
     [Fact]
+    public void GetNoteSuggestions_ReturnsDistinctSingleLineNotesByFrequency()
+    {
+        DateTime start = DateTime.Today.AddDays(-1).AddHours(9);
+        _database.AddManualTimeLog("1001", start, start.AddHours(1), "Buchen", TestEmployee);
+        _database.AddManualTimeLog("1001", start.AddHours(2), start.AddHours(3), "Buchhaltung", TestEmployee);
+        _database.AddManualTimeLog("1001", start.AddHours(4), start.AddHours(5), "buchhaltung ", TestEmployee);
+        _database.AddManualTimeLog("1001", start.AddHours(6), start.AddHours(7), "a\nb", TestEmployee);
+
+        Assert.Equal(new[] { "buchhaltung", "Buchen" }, _database.GetNoteSuggestions());
+    }
+
+    [Fact]
     public void BundledSeedDatabase_IsMigratedByStartup()
     {
         string seedPath = Path.Combine(AppContext.BaseDirectory, "Resources", "kundenDaten.sqlite");

@@ -1,6 +1,6 @@
 using System;
-using System.Collections.ObjectModel;
-using System.ComponentModel;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;using System.ComponentModel;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -25,6 +25,9 @@ public partial class Zeiterfassung : UserControl
     private readonly DispatcherTimer _notesSaveTimer;
     private int? _activeTimeLogId;
     private bool _updatingNotes;
+    private bool _applyingSuggestion;
+    private int _pendingSuggestionLength;
+    private List<string> _noteSuggestions = new();
     private bool _updatingCustomerSelection;
 
     public Zeiterfassung(DatabaseHelper dbHelper)
@@ -161,7 +164,7 @@ public partial class Zeiterfassung : UserControl
         int timeLogId;
         try
         {
-            timeLogId = _dbHelper.StartTimeLog(clientNumber, startTime, NotesTextBox.Text,
+            timeLogId = _dbHelper.StartTimeLog(clientNumber, startTime, CommittedNotes,
                 employeeNumber);
         }
         catch (Exception ex)
@@ -327,6 +330,15 @@ public partial class Zeiterfassung : UserControl
 
     private void NotesTextBox_TextChanged(object sender, TextChangedEventArgs e)
     {
+        if (!_updatingNotes && !_applyingSuggestion && e.Changes.Any(c => c.AddedLength > 0))
+        {
+            ApplyNoteSuggestion();
+        }
+        else if (!_applyingSuggestion)
+        {
+            _pendingSuggestionLength = 0;
+        }
+
         if (_updatingNotes || _activeTimeLogId is null)
         {
             return;
@@ -334,6 +346,76 @@ public partial class Zeiterfassung : UserControl
 
         _notesSaveTimer.Stop();
         _notesSaveTimer.Start();
+    }
+
+    private string CommittedNotes
+    {
+        get
+        {
+            string text = NotesTextBox.Text;
+            bool suggestionShown = _pendingSuggestionLength > 0
+                && NotesTextBox.SelectionLength == _pendingSuggestionLength
+                && NotesTextBox.SelectionStart + _pendingSuggestionLength == text.Length;
+            return suggestionShown ? text[..^_pendingSuggestionLength] : text;
+        }
+    }
+
+    private void ApplyNoteSuggestion()
+    {
+        _pendingSuggestionLength = 0;
+        string text = NotesTextBox.Text;
+        if (text.Length == 0 || text.Contains('\n') || NotesTextBox.SelectionLength > 0
+            || NotesTextBox.CaretIndex != text.Length)
+        {
+            return;
+        }
+
+        string? match = _noteSuggestions.FirstOrDefault(s =>
+            s.Length > text.Length && s.StartsWith(text, StringComparison.OrdinalIgnoreCase));
+        if (match is null)
+        {
+            return;
+        }
+
+        _applyingSuggestion = true;
+        try
+        {
+            NotesTextBox.Text = text + match[text.Length..];
+            NotesTextBox.Select(text.Length, match.Length - text.Length);
+            _pendingSuggestionLength = match.Length - text.Length;
+        }
+        finally
+        {
+            _applyingSuggestion = false;
+        }
+    }
+
+    private void NotesTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Tab && Keyboard.Modifiers == ModifierKeys.None && _pendingSuggestionLength > 0
+            && NotesTextBox.SelectionLength == _pendingSuggestionLength)
+        {
+            NotesTextBox.CaretIndex = NotesTextBox.Text.Length;
+            _pendingSuggestionLength = 0;
+            e.Handled = true;
+            if (_activeTimeLogId is not null)
+            {
+                _notesSaveTimer.Stop();
+                _notesSaveTimer.Start();
+            }
+        }
+    }
+
+    private void NotesTextBox_GotFocus(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            _noteSuggestions = _dbHelper.IsDatabaseInitialized() ? _dbHelper.GetNoteSuggestions() : new List<string>();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warning("timelog.suggestions_failed", $"Could not load note suggestions: {ex.GetType().Name}");
+        }
     }
 
     private void NotesSaveTimer_Tick(object? sender, EventArgs e)
@@ -352,7 +434,7 @@ public partial class Zeiterfassung : UserControl
 
         try
         {
-            _dbHelper.UpdateOpenTimeLogNotes(timeLogId, NotesTextBox.Text);
+            _dbHelper.UpdateOpenTimeLogNotes(timeLogId, CommittedNotes);
             AppLogger.Information("timelog.notes_saved", "Saved notes for the active time entry.");
             return true;
         }
@@ -503,7 +585,7 @@ public partial class Zeiterfassung : UserControl
             ClientNumber = CustomerNumberComboBox.Text,
             StartTime = _startTime,
             EndTime = null,
-            Notes = NotesTextBox.Text
+            Notes = CommittedNotes
         };
         var editor = new EditTimeLogWindow(activeLog)
         {
