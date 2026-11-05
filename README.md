@@ -31,35 +31,14 @@
 
 The interface is in German. All screenshots use fictitious demo data.
 
-### Time tracking
-
-![Time tracking view with a running timer](docs/screenshots/time-tracking.png)
-
-### Customers
-
-![Customer directory with search](docs/screenshots/customers.png)
-
-### Employees
-
-![Employee list with the current employee selected](docs/screenshots/employees.png)
-
-### Time entries
-
-![Time entries with filters, billing status, and totals](docs/screenshots/time-entries.png)
-
-### Settings and log viewer
-
-![Settings with database, backup, and log options](docs/screenshots/settings.png)
-
-![Built-in log viewer](docs/screenshots/log-viewer.png)
-
-### Dialogs
+<p align="center">
+  <img src="docs/screenshots/time-entries.png" alt="Time entries with filters, billing status, and totals" width="100%">
+</p>
 
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/export-options.png" alt="Export options for Excel and PDF" width="280"><br>Export options</td>
-    <td align="center"><img src="docs/screenshots/manual-entry.png" alt="Dialog for adding a time entry manually" width="280"><br>Manual time entry</td>
-    <td align="center"><img src="docs/screenshots/customer-editor.png" alt="Customer editor" width="280"><br>Customer editor</td>
+    <td width="50%" align="center"><img src="docs/screenshots/time-tracking.png" alt="Time tracking with a running timer"><br>Time tracking</td>
+    <td width="50%" align="center"><img src="docs/screenshots/customers.png" alt="Customer directory with search"><br>Customers</td>
   </tr>
 </table>
 
