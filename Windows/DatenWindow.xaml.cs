@@ -141,15 +141,15 @@ public partial class DatenWindow : UserControl
     {
         List<DatabaseHelper.TimeLog> filteredLogs = _timeLogsView.Cast<DatabaseHelper.TimeLog>().ToList();
         int count = filteredLogs.Count;
-        DateTime now = DateTime.Now;
+        DateTimeOffset now = DateTimeOffset.Now;
         TimeSpan totalDuration = TimeSpan.FromTicks(filteredLogs.Sum(log =>
-            (log.Duration ?? (log.StartTime is DateTime startTime && log.EndTime is null
-                ? now - startTime
+            (log.Duration ?? (log.StartTime.HasValue && log.EndTime is null
+                ? log.GetOpenDuration(now)
                 : TimeSpan.Zero)).Ticks));
         TimeSpan openDuration = TimeSpan.FromTicks(filteredLogs
             .Where(log => !log.IsBilled)
-            .Sum(log => (log.Duration ?? (log.StartTime is DateTime startTime && log.EndTime is null
-                ? now - startTime
+            .Sum(log => (log.Duration ?? (log.StartTime.HasValue && log.EndTime is null
+                ? log.GetOpenDuration(now)
                 : TimeSpan.Zero)).Ticks));
         string countText = count == 1 ? "1 Eintrag" : $"{count} Einträge";
         CultureInfo german = CultureInfo.GetCultureInfo("de-DE");
@@ -298,7 +298,7 @@ public partial class DatenWindow : UserControl
         {
             if (editor.IsOpenEntry)
             {
-                _dbHelper.UpdateOpenTimeLogStartTime(log.Id, editor.StartTime);
+                log.StartTimeUtc = _dbHelper.UpdateOpenTimeLogStartTime(log.Id, editor.StartTime);
                 log.StartTime = editor.StartTime;
             }
             else
@@ -315,8 +315,7 @@ public partial class DatenWindow : UserControl
                 log.Notes = editor.Notes;
             }
 
-            _timeLogsView.Refresh();
-            UpdateResultsCount();
+            LoadAllTimeLogs();
             AppLogger.Information("timelog.updated",
                 editor.IsOpenEntry ? "Updated the start time of an open time entry." : "Updated a time entry.");
         }
@@ -471,6 +470,8 @@ public partial class DatenWindow : UserControl
             EmployeeNumber = log.EmployeeNumber,
             StartTime = log.StartTime,
             EndTime = log.EndTime,
+            StartTimeUtc = log.StartTimeUtc,
+            EndTimeUtc = log.EndTimeUtc,
             IsBilled = options.MarkExportedAsBilled || log.IsBilled,
             Notes = log.Notes
         }).ToList();

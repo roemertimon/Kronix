@@ -169,7 +169,8 @@ public partial class DashboardWindow : Window
             // Persist pending note edits before the entry is closed.
             (MainContentControl.Content as Zeiterfassung)?.FlushNotes();
 
-            if (!_dbHelper.StopTimeLog(openLog.Id, DateTime.Now))
+            DateTimeOffset stopInstant = DateTimeOffset.Now;
+            if (!_dbHelper.StopTimeLog(openLog.Id, stopInstant.LocalDateTime, stopInstant))
             {
                 throw new InvalidOperationException("Der laufende Zeiteintrag wurde nicht gefunden.");
             }

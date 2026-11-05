@@ -41,20 +41,28 @@ public class DatabaseHelper
         public int Id { get; set; }
         public string? ClientNumber { get; set; }
         public string? EmployeeNumber { get; set; }
-        public DateTime? StartTime { get; set; }  
+        public DateTime? StartTime { get; set; }
         public DateTime? EndTime { get; set; }
+        public DateTime? StartTimeUtc { get; set; }
+        public DateTime? EndTimeUtc { get; set; }
         public bool IsBilled { get; set; }
         public string? Notes { get; set; }
-        
+
         // Berechnete Dauer zwischen StartTime und EndTime
         public TimeSpan? Duration
         {
             get
             {
+                if (StartTimeUtc.HasValue && EndTimeUtc.HasValue)
+                {
+                    return EndTimeUtc.Value - StartTimeUtc.Value;
+                }
+
                 if (StartTime.HasValue && EndTime.HasValue)
                 {
                     return EndTime.Value - StartTime.Value;
                 }
+
                 return null;
             }
         }
@@ -62,24 +70,42 @@ public class DatabaseHelper
         public string DurationText => Duration is TimeSpan duration
             ? $"{(int)duration.TotalHours:00}:{duration.Minutes:00}"
             : string.Empty;
+
+        public TimeSpan GetOpenDuration(DateTimeOffset now)
+        {
+            if (StartTimeUtc is DateTime startTimeUtc)
+            {
+                return now.UtcDateTime - startTimeUtc;
+            }
+
+            return StartTime is DateTime startTime ? now.LocalDateTime - startTime : TimeSpan.Zero;
+        }
     }
-    
+
     private string _connectionString;
     private readonly Action<string>? _reportStatus;
     private readonly string _databasePathSettingPath;
     private readonly string _currentEmployeePath;
+    private readonly string _workstationId;
     private bool _isDatabaseInitialized;
     private bool _hasActiveTimeLog;
     public string? InitializationError { get; private set; }
     public string DatabasePath { get; private set; } = string.Empty;
 
-    public DatabaseHelper(Action<string>? reportStatus = null, string? databasePathSettingPath = null)
+    public DatabaseHelper(
+        Action<string>? reportStatus = null,
+        string? databasePathSettingPath = null,
+        string? workstationId = null)
     {
         _reportStatus = reportStatus;
         _databasePathSettingPath = databasePathSettingPath ?? GetDatabaseConfigurationPath();
+        string settingsDirectory = Path.GetDirectoryName(Path.GetFullPath(_databasePathSettingPath))
+            ?? throw new InvalidOperationException("Der Speicherort der lokalen Einstellungen ist ungültig.");
         _currentEmployeePath = Path.Combine(
-            Path.GetDirectoryName(Path.GetFullPath(_databasePathSettingPath)) ?? string.Empty,
-            "current-employee.txt");
+            settingsDirectory, "current-employee.txt");
+        _workstationId = string.IsNullOrWhiteSpace(workstationId)
+            ? GetOrCreateWorkstationId(settingsDirectory)
+            : workstationId.Trim();
         _reportStatus?.Invoke("Datenbankdatei wird gesucht …");
         string? configuredDbPath = GetConfiguredDatabasePath(_databasePathSettingPath);
         string dbPath;
@@ -111,7 +137,7 @@ public class DatabaseHelper
             _reportStatus?.Invoke("Offene Zeiteinträge werden geprüft …");
             try
             {
-                CloseOpenTimeLogs(DateTime.Now);
+                CloseOpenTimeLogs(DateTime.Now, DateTimeOffset.Now);
             }
             catch (Exception ex)
             {
@@ -185,7 +211,7 @@ public class DatabaseHelper
             throw;
         }
     }
-    
+
     private void InitializeDatabase()
     {
         try
@@ -217,7 +243,7 @@ public class DatabaseHelper
                         IsBilled INTEGER NOT NULL DEFAULT 0,
                         Notes TEXT
                 )";
-            
+
         using (var command = new SqliteCommand(createTableQuery, connection))
         {
             command.ExecuteNonQuery();
@@ -288,6 +314,9 @@ public class DatabaseHelper
         bool hasBilledColumn = false;
         bool hasNotesColumn = false;
         bool hasEmployeeNumberColumn = false;
+        bool hasWorkstationIdColumn = false;
+        bool hasStartTimeUtcColumn = false;
+        bool hasEndTimeUtcColumn = false;
         using (var command = new SqliteCommand("PRAGMA table_info(TimeLogs)", connection))
         using (var reader = command.ExecuteReader())
         {
@@ -304,6 +333,18 @@ public class DatabaseHelper
                 else if (string.Equals(reader.GetString(1), "EmployeeNumber", StringComparison.OrdinalIgnoreCase))
                 {
                     hasEmployeeNumberColumn = true;
+                }
+                else if (string.Equals(reader.GetString(1), "WorkstationId", StringComparison.OrdinalIgnoreCase))
+                {
+                    hasWorkstationIdColumn = true;
+                }
+                else if (string.Equals(reader.GetString(1), "StartTimeUtc", StringComparison.OrdinalIgnoreCase))
+                {
+                    hasStartTimeUtcColumn = true;
+                }
+                else if (string.Equals(reader.GetString(1), "EndTimeUtc", StringComparison.OrdinalIgnoreCase))
+                {
+                    hasEndTimeUtcColumn = true;
                 }
             }
         }
@@ -332,9 +373,33 @@ public class DatabaseHelper
             migration.ExecuteNonQuery();
         }
 
+        if (!hasWorkstationIdColumn)
+        {
+            using var migration = new SqliteCommand(
+                "ALTER TABLE TimeLogs ADD COLUMN WorkstationId TEXT",
+                connection);
+            migration.ExecuteNonQuery();
+        }
+
+        if (!hasStartTimeUtcColumn)
+        {
+            using var migration = new SqliteCommand(
+                "ALTER TABLE TimeLogs ADD COLUMN StartTimeUtc TEXT",
+                connection);
+            migration.ExecuteNonQuery();
+        }
+
+        if (!hasEndTimeUtcColumn)
+        {
+            using var migration = new SqliteCommand(
+                "ALTER TABLE TimeLogs ADD COLUMN EndTimeUtc TEXT",
+                connection);
+            migration.ExecuteNonQuery();
+        }
+
         AppLogger.Information("database.schema_ready", "Database schema check completed.");
     }
-    
+
     public bool IsDatabaseInitialized()
     {
         return _isDatabaseInitialized;
@@ -520,9 +585,7 @@ public class DatabaseHelper
             EnsureSchema(connection);
         }
 
-        using var command = new SqliteCommand("PRAGMA integrity_check", connection);
-        string result = Convert.ToString(command.ExecuteScalar()) ??
-                        "Integritätsprüfung lieferte kein Ergebnis.";
+        string result = RunIntegrityCheck(connection);
         if (string.Equals(result, "ok", StringComparison.OrdinalIgnoreCase))
         {
             _isDatabaseInitialized = true;
@@ -591,8 +654,7 @@ public class DatabaseHelper
         {
             connection.Open();
             EnsureSchema(connection);
-            using var command = new SqliteCommand("PRAGMA integrity_check", connection);
-            string integrity = Convert.ToString(command.ExecuteScalar()) ?? string.Empty;
+            string integrity = RunIntegrityCheck(connection);
             if (!string.Equals(integrity, "ok", StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidDataException($"Die Datenbankprüfung ist fehlgeschlagen: {integrity}");
@@ -606,7 +668,7 @@ public class DatabaseHelper
             currentEmployee = GetCurrentEmployeeNumber(employeeConnection);
         }
 
-        CloseOpenTimeLogs(connectionString, DateTime.Now, currentEmployee);
+        CloseOpenTimeLogs(connectionString, DateTime.Now, DateTimeOffset.Now, currentEmployee, _workstationId);
         SaveConfiguredDatabasePath(fullPath);
         _connectionString = connectionString;
         DatabasePath = fullPath;
@@ -619,7 +681,13 @@ public class DatabaseHelper
 
     public void ExportDatabaseArchive(string archivePath)
     {
+        string fullArchivePath = Path.GetFullPath(archivePath);
+        string archiveDirectory = Path.GetDirectoryName(fullArchivePath)
+            ?? throw new InvalidOperationException("Der Speicherort der Sicherung ist ungültig.");
         string tempDatabasePath = Path.Combine(Path.GetTempPath(), $"Kronix-{Guid.NewGuid():N}.sqlite");
+        string tempArchivePath = Path.Combine(
+            archiveDirectory,
+            $".{Path.GetFileName(fullArchivePath)}.{Guid.NewGuid():N}.tmp");
         try
         {
             using (var source = new SqliteConnection(_connectionString))
@@ -627,18 +695,31 @@ public class DatabaseHelper
                        BuildConnectionString(tempDatabasePath, SqliteOpenMode.ReadWriteCreate, pooling: false)))
             {
                 source.Open();
+                EnsureDatabaseIntegrity(source);
                 destination.Open();
                 source.BackupDatabase(destination);
+                EnsureDatabaseIntegrity(destination);
             }
 
-            using var archive = ZipFile.Open(archivePath, ZipArchiveMode.Create);
-            archive.CreateEntryFromFile(tempDatabasePath, Path.GetFileNameWithoutExtension(archivePath) + ".sqlite");
+            using (var archive = ZipFile.Open(tempArchivePath, ZipArchiveMode.Create))
+            {
+                archive.CreateEntryFromFile(
+                    tempDatabasePath,
+                    Path.GetFileNameWithoutExtension(fullArchivePath) + ".sqlite");
+            }
+
+            File.Move(tempArchivePath, fullArchivePath, overwrite: true);
         }
         finally
         {
             if (File.Exists(tempDatabasePath))
             {
                 File.Delete(tempDatabasePath);
+            }
+
+            if (File.Exists(tempArchivePath))
+            {
+                File.Delete(tempArchivePath);
             }
         }
     }
@@ -706,35 +787,47 @@ public class DatabaseHelper
     public TimeLog? GetOpenTimeLog()
     {
         string? employeeNumber = GetCurrentEmployeeNumber();
-        if (employeeNumber is null)
-        {
-            return null;
-        }
-
         using var connection = new SqliteConnection(_connectionString);
         connection.Open();
         using var command = new SqliteCommand(
-            "SELECT Id, ClientNumber, StartTime, EndTime, IsBilled, Notes, EmployeeNumber FROM TimeLogs WHERE EndTime IS NULL AND EmployeeNumber = @employee COLLATE NOCASE ORDER BY StartTime DESC LIMIT 1",
+            @"SELECT Id, ClientNumber, StartTime, EndTime, IsBilled, Notes, EmployeeNumber, StartTimeUtc, EndTimeUtc
+              FROM TimeLogs
+              WHERE EndTime IS NULL
+                AND (WorkstationId = @workstation OR
+                     (WorkstationId IS NULL AND EmployeeNumber = @employee COLLATE NOCASE))
+              ORDER BY CASE WHEN WorkstationId = @workstation THEN 0 ELSE 1 END, StartTime DESC
+              LIMIT 1",
             connection);
-        command.Parameters.AddWithValue("@employee", employeeNumber);
+        command.Parameters.AddWithValue("@workstation", _workstationId);
+        command.Parameters.AddWithValue("@employee", (object?)employeeNumber ?? DBNull.Value);
         using var reader = command.ExecuteReader();
 
         return reader.Read() ? ReadTimeLog(reader) : null;
     }
 
     // Method to start a time log entry (only adds start time)
-    public int StartTimeLog(string clientNumber, DateTime startTime, string? notes = null, string? employeeNumber = null)
+    public int StartTimeLog(
+        string clientNumber,
+        DateTime startTime,
+        string? notes = null,
+        string? employeeNumber = null,
+        DateTimeOffset? startInstant = null)
     {
         startTime = TruncateToMinute(startTime);
+        DateTime startTimeUtc = startInstant?.UtcDateTime ?? ConvertLocalTimeToUtc(startTime);
         using var connection = new SqliteConnection(_connectionString);
         connection.Open();
         employeeNumber = RequireEmployeeNumber(connection, employeeNumber);
-        const string insertQuery = "INSERT INTO TimeLogs (ClientNumber, StartTime, EndTime, Notes, EmployeeNumber) VALUES (@clientNumber, @startTime, NULL, @notes, @employeeNumber)";
+        const string insertQuery = @"INSERT INTO TimeLogs
+            (ClientNumber, StartTime, EndTime, Notes, EmployeeNumber, WorkstationId, StartTimeUtc)
+            VALUES (@clientNumber, @startTime, NULL, @notes, @employeeNumber, @workstation, @startTimeUtc)";
         using SqliteCommand command = new SqliteCommand(insertQuery, connection);
         command.Parameters.AddWithValue("@clientNumber", clientNumber);
         command.Parameters.AddWithValue("@startTime", startTime.ToString("yyyy-MM-dd HH:mm:ss"));
         command.Parameters.AddWithValue("@notes", (object?)notes ?? DBNull.Value);
         command.Parameters.AddWithValue("@employeeNumber", employeeNumber);
+        command.Parameters.AddWithValue("@workstation", _workstationId);
+        command.Parameters.AddWithValue("@startTimeUtc", FormatUtcTimestamp(startTimeUtc));
         command.ExecuteNonQuery();
         using var idCommand = new SqliteCommand("SELECT last_insert_rowid()", connection);
         int timeLogId = Convert.ToInt32(idCommand.ExecuteScalar());
@@ -757,44 +850,56 @@ public class DatabaseHelper
             throw new ArgumentException("Ein manueller Zeiteintrag darf nicht in der Zukunft liegen.");
         }
 
-        if (endTime < startTime)
+        DateTime startTimeUtc = ConvertLocalTimeToUtc(startTime);
+        DateTime endTimeUtc = ConvertLocalTimeToUtc(endTime);
+        if (endTimeUtc < startTimeUtc)
         {
             throw new ArgumentException("Die Endzeit darf nicht vor der Startzeit liegen.", nameof(endTime));
         }
 
-        endTime = RoundEndTime(startTime, endTime);
+        DateTimeOffset normalizedEndInstant = RoundEndTime(
+            new DateTimeOffset(startTimeUtc, TimeSpan.Zero),
+            new DateTimeOffset(endTimeUtc, TimeSpan.Zero));
+        endTimeUtc = normalizedEndInstant.UtcDateTime;
+        endTime = normalizedEndInstant.LocalDateTime;
         using var connection = new SqliteConnection(_connectionString);
         connection.Open();
         employeeNumber = RequireEmployeeNumber(connection, employeeNumber);
         using var command = new SqliteCommand(
-            @"INSERT INTO TimeLogs (ClientNumber, StartTime, EndTime, Notes, EmployeeNumber)
-              VALUES (@clientNumber, @startTime, @endTime, @notes, @employeeNumber)",
+            @"INSERT INTO TimeLogs
+              (ClientNumber, StartTime, EndTime, Notes, EmployeeNumber, StartTimeUtc, EndTimeUtc)
+              VALUES (@clientNumber, @startTime, @endTime, @notes, @employeeNumber, @startTimeUtc, @endTimeUtc)",
             connection);
         command.Parameters.AddWithValue("@clientNumber", clientNumber.Trim());
         command.Parameters.AddWithValue("@startTime", startTime.ToString("yyyy-MM-dd HH:mm:ss"));
         command.Parameters.AddWithValue("@endTime", endTime.ToString("yyyy-MM-dd HH:mm:ss"));
         command.Parameters.AddWithValue("@notes", (object?)notes ?? DBNull.Value);
         command.Parameters.AddWithValue("@employeeNumber", employeeNumber);
+        command.Parameters.AddWithValue("@startTimeUtc", FormatUtcTimestamp(startTimeUtc));
+        command.Parameters.AddWithValue("@endTimeUtc", FormatUtcTimestamp(endTimeUtc));
         command.ExecuteNonQuery();
         using var idCommand = new SqliteCommand("SELECT last_insert_rowid()", connection);
         return Convert.ToInt32(idCommand.ExecuteScalar());
     }
 
-    public void UpdateOpenTimeLogStartTime(int timeLogId, DateTime startTime, string? notes = null)
+    public DateTime UpdateOpenTimeLogStartTime(int timeLogId, DateTime startTime, string? notes = null)
     {
         if (startTime > DateTime.Now)
         {
             throw new ArgumentException("Die Startzeit darf nicht in der Zukunft liegen.", nameof(startTime));
         }
 
+        startTime = TruncateToMinute(startTime);
+        DateTime startTimeUtc = ConvertLocalTimeToUtc(startTime);
         using var connection = new SqliteConnection(_connectionString);
         connection.Open();
         using var transaction = connection.BeginTransaction();
         using var command = new SqliteCommand(
-            "UPDATE TimeLogs SET StartTime = @startTime, Notes = COALESCE(@notes, Notes) WHERE Id = @id AND EndTime IS NULL",
+            "UPDATE TimeLogs SET StartTime = @startTime, StartTimeUtc = @startTimeUtc, Notes = COALESCE(@notes, Notes) WHERE Id = @id AND EndTime IS NULL",
             connection, transaction);
         command.Parameters.AddWithValue("@id", timeLogId);
-        command.Parameters.AddWithValue("@startTime", TruncateToMinute(startTime).ToString("yyyy-MM-dd HH:mm:ss"));
+        command.Parameters.AddWithValue("@startTime", startTime.ToString("yyyy-MM-dd HH:mm:ss"));
+        command.Parameters.AddWithValue("@startTimeUtc", FormatUtcTimestamp(startTimeUtc));
         command.Parameters.AddWithValue("@notes", (object?)notes ?? DBNull.Value);
         if (command.ExecuteNonQuery() != 1)
         {
@@ -802,40 +907,63 @@ public class DatabaseHelper
         }
 
         transaction.Commit();
+        return startTimeUtc;
     }
 
-    public bool StopTimeLog(int timeLogId, DateTime endTime)
+    public bool StopTimeLog(int timeLogId, DateTime endTime, DateTimeOffset? endInstant = null)
     {
         using var connection = new SqliteConnection(_connectionString);
         connection.Open();
 
         using var transaction = connection.BeginTransaction();
         using var selectCommand = new SqliteCommand(
-            "SELECT StartTime FROM TimeLogs WHERE Id = @id AND EndTime IS NULL",
+            "SELECT StartTime, StartTimeUtc FROM TimeLogs WHERE Id = @id AND EndTime IS NULL",
             connection,
             transaction);
         selectCommand.Parameters.AddWithValue("@id", timeLogId);
-        object? startValue = selectCommand.ExecuteScalar();
-        if (startValue is not string startText ||
-            !DateTime.TryParse(startText, CultureInfo.InvariantCulture,
+        using SqliteDataReader reader = selectCommand.ExecuteReader();
+        if (!reader.Read() ||
+            !DateTime.TryParse(reader.GetString(0), CultureInfo.InvariantCulture,
                 DateTimeStyles.None, out DateTime startTime))
         {
             return false;
         }
 
-        if (endTime < startTime)
+        DateTime? startTimeUtc = reader.IsDBNull(1) ? null : ParseUtcTimestamp(reader.GetString(1));
+        reader.Close();
+
+        string? endTimeUtc = null;
+        if (startTimeUtc is DateTime exactStartTimeUtc)
         {
-            throw new ArgumentException("Die Endzeit darf nicht vor der Startzeit liegen.", nameof(endTime));
+            DateTimeOffset actualEndInstant = endInstant ?? new DateTimeOffset(endTime);
+            if (actualEndInstant.UtcDateTime < exactStartTimeUtc)
+            {
+                throw new ArgumentException("Die Endzeit darf nicht vor der Startzeit liegen.", nameof(endTime));
+            }
+
+            DateTimeOffset normalizedEndInstant = RoundEndTime(
+                new DateTimeOffset(exactStartTimeUtc, TimeSpan.Zero), actualEndInstant);
+            endTime = normalizedEndInstant.LocalDateTime;
+            endTimeUtc = FormatUtcTimestamp(normalizedEndInstant.UtcDateTime);
+        }
+        else
+        {
+            if (endTime < startTime)
+            {
+                throw new ArgumentException("Die Endzeit darf nicht vor der Startzeit liegen.", nameof(endTime));
+            }
+
+            endTime = RoundEndTime(startTime, endTime);
         }
 
-        DateTime normalizedEndTime = RoundEndTime(startTime, endTime);
         const string updateQuery = @"
             UPDATE TimeLogs 
-            SET EndTime = @endTime 
+            SET EndTime = @endTime, EndTimeUtc = @endTimeUtc
             WHERE Id = @id AND EndTime IS NULL";
         using SqliteCommand command = new SqliteCommand(updateQuery, connection, transaction);
         command.Parameters.AddWithValue("@id", timeLogId);
-        command.Parameters.AddWithValue("@endTime", normalizedEndTime.ToString("yyyy-MM-dd HH:mm:ss"));
+        command.Parameters.AddWithValue("@endTime", endTime.ToString("yyyy-MM-dd HH:mm:ss"));
+        command.Parameters.AddWithValue("@endTimeUtc", (object?)endTimeUtc ?? DBNull.Value);
         bool updated = command.ExecuteNonQuery() == 1;
         transaction.Commit();
         if (updated)
@@ -846,10 +974,12 @@ public class DatabaseHelper
         return updated;
     }
 
-    // Only the current employee's entries are closed, so another workstation's running timer is untouched.
-    public int CloseOpenTimeLogs(DateTime endTime)
+    // Close this workstation's timers and use the selected employee only for legacy rows without a workstation ID.
+    public int CloseOpenTimeLogs(DateTime endTime, DateTimeOffset? endInstant = null)
     {
-        int closedCount = CloseOpenTimeLogs(_connectionString, endTime, GetCurrentEmployeeNumber());
+        int closedCount = CloseOpenTimeLogs(
+            _connectionString, endTime, endInstant ?? new DateTimeOffset(endTime),
+            GetCurrentEmployeeNumber(), _workstationId);
         if (closedCount > 0)
         {
             _hasActiveTimeLog = false;
@@ -858,22 +988,26 @@ public class DatabaseHelper
         return closedCount;
     }
 
-    private static int CloseOpenTimeLogs(string connectionString, DateTime endTime, string? employeeNumber)
+    private static int CloseOpenTimeLogs(
+        string connectionString,
+        DateTime endTime,
+        DateTimeOffset endInstant,
+        string? employeeNumber,
+        string workstationId)
     {
-        if (employeeNumber is null)
-        {
-            return 0;
-        }
-
         using var connection = new SqliteConnection(connectionString);
         connection.Open();
         using var transaction = connection.BeginTransaction();
         using var selectCommand = new SqliteCommand(
-            "SELECT Id, StartTime FROM TimeLogs WHERE EndTime IS NULL AND EmployeeNumber = @employee COLLATE NOCASE",
+            @"SELECT Id, StartTime, StartTimeUtc FROM TimeLogs
+              WHERE EndTime IS NULL
+                AND (WorkstationId = @workstation OR
+                     (WorkstationId IS NULL AND EmployeeNumber = @employee COLLATE NOCASE))",
             connection,
             transaction);
-        selectCommand.Parameters.AddWithValue("@employee", employeeNumber);
-        var openEntries = new List<(int Id, DateTime StartTime)>();
+        selectCommand.Parameters.AddWithValue("@workstation", workstationId);
+        selectCommand.Parameters.AddWithValue("@employee", (object?)employeeNumber ?? DBNull.Value);
+        var openEntries = new List<(int Id, DateTime StartTime, DateTime? StartTimeUtc)>();
         using (var reader = selectCommand.ExecuteReader())
         {
             while (reader.Read())
@@ -881,7 +1015,8 @@ public class DatabaseHelper
                 if (DateTime.TryParse(reader.GetString(1), CultureInfo.InvariantCulture,
                         DateTimeStyles.None, out DateTime startTime))
                 {
-                    openEntries.Add((reader.GetInt32(0), startTime));
+                    DateTime? startTimeUtc = reader.IsDBNull(2) ? null : ParseUtcTimestamp(reader.GetString(2));
+                    openEntries.Add((reader.GetInt32(0), startTime, startTimeUtc));
                 }
                 else
                 {
@@ -892,18 +1027,40 @@ public class DatabaseHelper
         }
 
         using var updateCommand = new SqliteCommand(
-            "UPDATE TimeLogs SET EndTime = @endTime WHERE Id = @id AND EndTime IS NULL",
+            "UPDATE TimeLogs SET EndTime = @endTime, EndTimeUtc = @endTimeUtc WHERE Id = @id AND EndTime IS NULL",
             connection,
             transaction);
         var idParameter = updateCommand.Parameters.Add("@id", SqliteType.Integer);
         var endTimeParameter = updateCommand.Parameters.Add("@endTime", SqliteType.Text);
+        var endTimeUtcParameter = updateCommand.Parameters.Add("@endTimeUtc", SqliteType.Text);
         int updatedCount = 0;
-        foreach ((int id, DateTime startTime) in openEntries)
+        foreach ((int id, DateTime startTime, DateTime? startTimeUtc) in openEntries)
         {
             idParameter.Value = id;
-            DateTime safeEndTime = endTime < startTime
-                ? startTime
-                : RoundEndTime(startTime, endTime);
+            DateTime safeEndTime;
+            if (startTimeUtc is DateTime exactStartTimeUtc)
+            {
+                if (endInstant.UtcDateTime < exactStartTimeUtc)
+                {
+                    safeEndTime = startTime;
+                    endTimeUtcParameter.Value = FormatUtcTimestamp(exactStartTimeUtc);
+                }
+                else
+                {
+                    DateTimeOffset normalizedEndInstant = RoundEndTime(
+                        new DateTimeOffset(exactStartTimeUtc, TimeSpan.Zero), endInstant);
+                    safeEndTime = normalizedEndInstant.LocalDateTime;
+                    endTimeUtcParameter.Value = FormatUtcTimestamp(normalizedEndInstant.UtcDateTime);
+                }
+            }
+            else
+            {
+                safeEndTime = endTime < startTime
+                    ? startTime
+                    : RoundEndTime(startTime, endTime);
+                endTimeUtcParameter.Value = DBNull.Value;
+            }
+
             endTimeParameter.Value = safeEndTime.ToString("yyyy-MM-dd HH:mm:ss");
             updatedCount += updateCommand.ExecuteNonQuery();
         }
@@ -913,6 +1070,7 @@ public class DatabaseHelper
         {
             AppLogger.Warning("timelog.recovered", $"Closed {updatedCount} unfinished time log(s).");
         }
+
         return updatedCount;
     }
 
@@ -989,29 +1147,38 @@ public class DatabaseHelper
             throw new ArgumentException("Die Kundennummer darf nicht leer sein.", nameof(clientNumber));
         }
 
-        if (endTime < startTime)
-        {
-            throw new ArgumentException("Die Endzeit darf nicht vor der Startzeit liegen.", nameof(endTime));
-        }
-
         if (startTime > DateTime.Now || endTime > DateTime.Now)
         {
             throw new ArgumentException("Ein abgeschlossener Zeiteintrag darf nicht in der Zukunft liegen.");
         }
 
         startTime = TruncateToMinute(startTime);
-        endTime = RoundEndTime(startTime, endTime);
+        DateTime startTimeUtc = ConvertLocalTimeToUtc(startTime);
+        DateTime endTimeUtc = ConvertLocalTimeToUtc(endTime);
+        if (endTimeUtc < startTimeUtc)
+        {
+            throw new ArgumentException("Die Endzeit darf nicht vor der Startzeit liegen.", nameof(endTime));
+        }
+
+        DateTimeOffset normalizedEndInstant = RoundEndTime(
+            new DateTimeOffset(startTimeUtc, TimeSpan.Zero),
+            new DateTimeOffset(endTimeUtc, TimeSpan.Zero));
+        endTimeUtc = normalizedEndInstant.UtcDateTime;
+        endTime = normalizedEndInstant.LocalDateTime;
         using var connection = new SqliteConnection(_connectionString);
         connection.Open();
         using var command = new SqliteCommand(
             @"UPDATE TimeLogs
-              SET ClientNumber = @clientNumber, StartTime = @startTime, EndTime = @endTime, Notes = @notes
+              SET ClientNumber = @clientNumber, StartTime = @startTime, EndTime = @endTime,
+                  StartTimeUtc = @startTimeUtc, EndTimeUtc = @endTimeUtc, Notes = @notes
               WHERE Id = @id AND EndTime IS NOT NULL",
             connection);
         command.Parameters.AddWithValue("@id", timeLogId);
         command.Parameters.AddWithValue("@clientNumber", clientNumber.Trim());
         command.Parameters.AddWithValue("@startTime", startTime.ToString("yyyy-MM-dd HH:mm:ss"));
         command.Parameters.AddWithValue("@endTime", endTime.ToString("yyyy-MM-dd HH:mm:ss"));
+        command.Parameters.AddWithValue("@startTimeUtc", FormatUtcTimestamp(startTimeUtc));
+        command.Parameters.AddWithValue("@endTimeUtc", FormatUtcTimestamp(endTimeUtc));
         command.Parameters.AddWithValue("@notes", (object?)notes ?? DBNull.Value);
         if (command.ExecuteNonQuery() != 1)
         {
@@ -1070,7 +1237,7 @@ public class DatabaseHelper
 
         using var connection = new SqliteConnection(_connectionString);
         connection.Open();
-        const string selectQuery = "SELECT Id, ClientNumber, StartTime, EndTime, IsBilled, Notes, EmployeeNumber FROM TimeLogs WHERE ClientNumber = @clientNumber";
+        const string selectQuery = "SELECT Id, ClientNumber, StartTime, EndTime, IsBilled, Notes, EmployeeNumber, StartTimeUtc, EndTimeUtc FROM TimeLogs WHERE ClientNumber = @clientNumber";
         using SqliteCommand command = new SqliteCommand(selectQuery, connection);
         command.Parameters.AddWithValue("@clientNumber", clientNumber);
         using SqliteDataReader reader = command.ExecuteReader();
@@ -1090,7 +1257,7 @@ public class DatabaseHelper
 
         using var connection = new SqliteConnection(_connectionString);
         connection.Open();
-        const string selectQuery = "SELECT Id, ClientNumber, StartTime, EndTime, IsBilled, Notes, EmployeeNumber FROM TimeLogs ORDER BY StartTime DESC";
+        const string selectQuery = "SELECT Id, ClientNumber, StartTime, EndTime, IsBilled, Notes, EmployeeNumber, StartTimeUtc, EndTimeUtc FROM TimeLogs ORDER BY StartTime DESC";
         using SqliteCommand command = new SqliteCommand(selectQuery, connection);
         using SqliteDataReader reader = command.ExecuteReader();
 
@@ -1116,7 +1283,9 @@ public class DatabaseHelper
                 : DateTime.Parse(reader.GetString(3), CultureInfo.InvariantCulture),
             IsBilled = reader.GetInt32(4) != 0,
             Notes = reader.IsDBNull(5) ? null : reader.GetString(5),
-            EmployeeNumber = reader.IsDBNull(6) ? null : reader.GetString(6)
+            EmployeeNumber = reader.IsDBNull(6) ? null : reader.GetString(6),
+            StartTimeUtc = reader.IsDBNull(7) ? null : ParseUtcTimestamp(reader.GetString(7)),
+            EndTimeUtc = reader.IsDBNull(8) ? null : ParseUtcTimestamp(reader.GetString(8))
         };
     }
 
@@ -1424,12 +1593,77 @@ public class DatabaseHelper
         }.ToString();
     }
 
+    private static string RunIntegrityCheck(SqliteConnection connection)
+    {
+        using var command = new SqliteCommand("PRAGMA integrity_check", connection);
+        using var reader = command.ExecuteReader();
+        List<string> results = [];
+        while (reader.Read())
+        {
+            results.Add(reader.GetString(0));
+        }
+
+        return results.Count == 0
+            ? "Integritätsprüfung lieferte kein Ergebnis."
+            : string.Join(Environment.NewLine, results);
+    }
+
+    private static void EnsureDatabaseIntegrity(SqliteConnection connection)
+    {
+        string result = RunIntegrityCheck(connection);
+        if (!string.Equals(result, "ok", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException($"Die Datenbankprüfung ist fehlgeschlagen: {result}");
+        }
+    }
+
     private static string GetDatabaseConfigurationPath()
     {
         return Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Kronix",
             "database-path.txt");
+    }
+
+    private static string GetOrCreateWorkstationId(string settingsDirectory)
+    {
+        Directory.CreateDirectory(settingsDirectory);
+        string path = Path.Combine(settingsDirectory, "workstation-id.txt");
+        if (File.Exists(path))
+        {
+            return ReadWorkstationId(path);
+        }
+
+        string workstationId = Guid.NewGuid().ToString("N");
+        string temporaryPath = Path.Combine(settingsDirectory, $"workstation-id.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            File.WriteAllText(temporaryPath, workstationId);
+            try
+            {
+                File.Move(temporaryPath, path);
+                return workstationId;
+            }
+            catch (IOException) when (File.Exists(path))
+            {
+                return ReadWorkstationId(path);
+            }
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
+            {
+                File.Delete(temporaryPath);
+            }
+        }
+    }
+
+    private static string ReadWorkstationId(string path)
+    {
+        string value = File.ReadAllText(path).Trim();
+        return Guid.TryParseExact(value, "N", out Guid workstationId)
+            ? workstationId.ToString("N")
+            : throw new InvalidDataException("Die lokale Arbeitsplatz-ID ist ungültig.");
     }
 
     private static string? GetConfiguredDatabasePath(string configPath)
@@ -1481,5 +1715,53 @@ public class DatabaseHelper
         TimeSpan elapsed = actualEndTime - startTime;
         int roundedIntervals = Math.Max(1, (int)Math.Ceiling(elapsed.TotalMinutes / 5));
         return startTime.AddMinutes(roundedIntervals * 5);
+    }
+
+    private static DateTimeOffset RoundEndTime(DateTimeOffset startTime, DateTimeOffset actualEndTime)
+    {
+        TimeSpan elapsed = actualEndTime - startTime;
+        int roundedIntervals = Math.Max(1, (int)Math.Ceiling(elapsed.TotalMinutes / 5));
+        return startTime.AddMinutes(roundedIntervals * 5);
+    }
+
+    private static DateTime ConvertLocalTimeToUtc(DateTime localTime)
+    {
+        if (localTime.Kind == DateTimeKind.Utc)
+        {
+            return localTime;
+        }
+
+        if (localTime.Kind == DateTimeKind.Local)
+        {
+            return localTime.ToUniversalTime();
+        }
+
+        DateTime unspecifiedTime = DateTime.SpecifyKind(localTime, DateTimeKind.Unspecified);
+        TimeZoneInfo localTimeZone = TimeZoneInfo.Local;
+        if (localTimeZone.IsInvalidTime(unspecifiedTime))
+        {
+            throw new ArgumentException(
+                "Diese Ortszeit existiert wegen der Sommerzeitumstellung nicht.", nameof(localTime));
+        }
+
+        if (localTimeZone.IsAmbiguousTime(unspecifiedTime))
+        {
+            throw new ArgumentException(
+                "Diese Ortszeit tritt wegen der Zeitumstellung zweimal auf und kann nicht eindeutig zugeordnet werden.",
+                nameof(localTime));
+        }
+
+        return TimeZoneInfo.ConvertTimeToUtc(unspecifiedTime, localTimeZone);
+    }
+
+    private static string FormatUtcTimestamp(DateTime utcTime)
+    {
+        return DateTime.SpecifyKind(utcTime, DateTimeKind.Utc)
+            .ToString("O", CultureInfo.InvariantCulture);
+    }
+
+    private static DateTime ParseUtcTimestamp(string value)
+    {
+        return DateTime.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind).ToUniversalTime();
     }
 }

@@ -21,6 +21,7 @@ public partial class Zeiterfassung : UserControl
     private readonly ICollectionView _customersView;
 
     private DateTime _startTime;           // To store the start time
+    private DateTime? _startTimeUtc;
     private DispatcherTimer _timer;        // Timer to update elapsed time
     private readonly DispatcherTimer _notesSaveTimer;
     private int? _activeTimeLogId;
@@ -61,6 +62,7 @@ public partial class Zeiterfassung : UserControl
 
         _activeTimeLogId = activeLog.Id;
         _startTime = startTime;
+        _startTimeUtc = activeLog.StartTimeUtc;
         _updatingNotes = true;
         NotesTextBox.Text = activeLog.Notes ?? string.Empty;
         _updatingNotes = false;
@@ -165,13 +167,14 @@ public partial class Zeiterfassung : UserControl
             return;
         }
         
-        DateTime now = DateTime.Now;
-        DateTime startTime = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0, now.Kind);
+        DateTimeOffset now = DateTimeOffset.Now;
+        DateTime startTime = new(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0);
+        DateTimeOffset startInstant = new(startTime, now.Offset);
         int timeLogId;
         try
         {
             timeLogId = _dbHelper.StartTimeLog(clientNumber, startTime, CommittedNotes,
-                employeeNumber);
+                employeeNumber, startInstant);
         }
         catch (Exception ex)
         {
@@ -181,6 +184,7 @@ public partial class Zeiterfassung : UserControl
         }
 
         _startTime = startTime;
+        _startTimeUtc = startInstant.UtcDateTime;
         _activeTimeLogId = timeLogId;
         StartTimeTextBlock.Text = startTime.ToString("HH:mm") + " Uhr";
         EditStartTimeButton.Visibility = Visibility.Visible;
@@ -223,14 +227,15 @@ public partial class Zeiterfassung : UserControl
             return;
         }
 
-        DateTime pauseTime = DateTime.Now;
+        DateTimeOffset pauseInstant = DateTimeOffset.Now;
+        DateTime pauseTime = pauseInstant.LocalDateTime;
         if (!SaveActiveNotes())
         {
             return;
         }
         try
         {
-            if (!_dbHelper.StopTimeLog(_activeTimeLogId.Value, pauseTime))
+            if (!_dbHelper.StopTimeLog(_activeTimeLogId.Value, pauseTime, pauseInstant))
             {
                 AppLogger.Warning("timelog.pause_missing_entry",
                     "Pause was requested but the active time entry no longer exists.");
@@ -272,7 +277,8 @@ public partial class Zeiterfassung : UserControl
             return;
         }
 
-        DateTime stopTime = DateTime.Now;
+        DateTimeOffset stopInstant = DateTimeOffset.Now;
+        DateTime stopTime = stopInstant.LocalDateTime;
         if (_activeTimeLogId is int timeLogId)
         {
             if (!SaveActiveNotes())
@@ -282,7 +288,7 @@ public partial class Zeiterfassung : UserControl
 
             try
             {
-                if (!_dbHelper.StopTimeLog(timeLogId, stopTime))
+                if (!_dbHelper.StopTimeLog(timeLogId, stopTime, stopInstant))
                 {
                     AppLogger.Warning("timelog.stop_missing_entry",
                         "Stop was requested but the active time entry no longer exists.");
@@ -576,7 +582,9 @@ public partial class Zeiterfassung : UserControl
     private void UpdateElapsedTime(object? sender, EventArgs e)
     {
         // Calculate the elapsed time
-        TimeSpan elapsedTime = DateTime.Now - _startTime;
+        TimeSpan elapsedTime = _startTimeUtc is DateTime startTimeUtc
+            ? DateTime.UtcNow - startTimeUtc
+            : DateTime.Now - _startTime;
 
         // Update ElapsedTimeTextBlock with the formatted elapsed time
         ElapsedTimeTextBlock.Text =
@@ -595,6 +603,7 @@ public partial class Zeiterfassung : UserControl
             Id = timeLogId,
             ClientNumber = CustomerNumberComboBox.Text,
             StartTime = _startTime,
+            StartTimeUtc = _startTimeUtc,
             EndTime = null,
             Notes = CommittedNotes
         };
@@ -609,7 +618,7 @@ public partial class Zeiterfassung : UserControl
 
         try
         {
-            _dbHelper.UpdateOpenTimeLogStartTime(timeLogId, editor.StartTime);
+            _startTimeUtc = _dbHelper.UpdateOpenTimeLogStartTime(timeLogId, editor.StartTime);
             _startTime = editor.StartTime;
             StartTimeTextBlock.Text = _startTime.ToString("HH:mm") + " Uhr";
             UpdateElapsedTime(null, EventArgs.Empty);

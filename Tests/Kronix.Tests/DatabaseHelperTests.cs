@@ -84,6 +84,35 @@ public sealed class DatabaseHelperTests : IDisposable
     }
 
     [Fact]
+    public void SameEmployee_CanTrackIndependentlyAndStartupRecoversOnlyThisWorkstation()
+    {
+        string otherDirectory = Path.Combine(_directory, "pc2");
+        Directory.CreateDirectory(otherDirectory);
+        string otherConfigurationPath = Path.Combine(otherDirectory, "database-path.txt");
+        File.WriteAllText(otherConfigurationPath, _database.DatabasePath);
+        var pc2 = new DatabaseHelper(
+            databasePathSettingPath: otherConfigurationPath,
+            workstationId: "workstation-two");
+        pc2.SetCurrentEmployeeNumber(TestEmployee);
+
+        DateTime start = DateTime.Today.AddHours(8);
+        int firstLog = _database.StartTimeLog("1001", start, "PC1", TestEmployee);
+        int secondLog = pc2.StartTimeLog("1001", start, "PC2", TestEmployee);
+
+        Assert.Equal(firstLog, _database.GetOpenTimeLog()!.Id);
+        Assert.Equal(secondLog, pc2.GetOpenTimeLog()!.Id);
+
+        var restartedPc2 = new DatabaseHelper(
+            databasePathSettingPath: otherConfigurationPath,
+            workstationId: "workstation-two");
+        Dictionary<int, DatabaseHelper.TimeLog> logs = _database.GetAllTimeLogs().ToDictionary(log => log.Id);
+
+        Assert.Null(logs[firstLog].EndTime);
+        Assert.NotNull(logs[secondLog].EndTime);
+        Assert.Null(restartedPc2.GetOpenTimeLog());
+    }
+
+    [Fact]
     public void BundledSeedDatabase_IsMigratedByStartup()
     {
         string seedPath = Path.Combine(AppContext.BaseDirectory, "Resources", "kundenDaten.sqlite");
@@ -96,8 +125,9 @@ public sealed class DatabaseHelperTests : IDisposable
         var seeded = new DatabaseHelper(databasePathSettingPath: configurationPath);
 
         Assert.True(seeded.IsDatabaseInitialized(), seeded.InitializationError);
-        Assert.NotEmpty(seeded.GetAllTimeLogs());
-        Assert.NotEmpty(seeded.GetAllCustomers());
+        Assert.Empty(seeded.GetAllTimeLogs());
+        Assert.Empty(seeded.GetAllCustomers());
+        Assert.Empty(seeded.GetAllEmployees());
     }
 
     [Fact]
@@ -241,6 +271,51 @@ public sealed class DatabaseHelperTests : IDisposable
     }
 
     [Fact]
+    public void OpenTimerDuration_UsesUtcAcrossSpringForward()
+    {
+        var startInstant = new DateTimeOffset(2026, 3, 29, 1, 55, 0, TimeSpan.FromHours(1));
+        var currentInstant = new DateTimeOffset(2026, 3, 29, 3, 5, 0, TimeSpan.FromHours(2));
+        int id = _database.StartTimeLog(
+            "1001", new DateTime(2026, 3, 29, 1, 55, 0), "DST", TestEmployee, startInstant);
+
+        DatabaseHelper.TimeLog openLog = _database.GetAllTimeLogs().Single(log => log.Id == id);
+
+        Assert.Equal(TimeSpan.FromMinutes(10), openLog.GetOpenDuration(currentInstant));
+    }
+
+    [Fact]
+    public void StopTimer_UsesUtcAcrossRepeatedFallBackHour()
+    {
+        var startInstant = new DateTimeOffset(2026, 10, 25, 2, 50, 0, TimeSpan.FromHours(2));
+        var endInstant = new DateTimeOffset(2026, 10, 25, 2, 10, 0, TimeSpan.FromHours(1));
+        int id = _database.StartTimeLog(
+            "1001", new DateTime(2026, 10, 25, 2, 50, 0), "DST", TestEmployee, startInstant);
+
+        Assert.True(_database.StopTimeLog(
+            id, new DateTime(2026, 10, 25, 2, 10, 0), endInstant));
+
+        DatabaseHelper.TimeLog log = _database.GetAllTimeLogs().Single(timeLog => timeLog.Id == id);
+        Assert.Equal(TimeSpan.FromMinutes(20), log.Duration);
+        Assert.Equal(startInstant.UtcDateTime, log.StartTimeUtc);
+        Assert.Equal(endInstant.UtcDateTime, log.EndTimeUtc);
+    }
+
+    [Fact]
+    public void StartupRecovery_UsesUtcAcrossRepeatedFallBackHour()
+    {
+        var startInstant = new DateTimeOffset(2026, 10, 25, 2, 50, 0, TimeSpan.FromHours(2));
+        var endInstant = new DateTimeOffset(2026, 10, 25, 2, 10, 0, TimeSpan.FromHours(1));
+        int id = _database.StartTimeLog(
+            "1001", new DateTime(2026, 10, 25, 2, 50, 0), "DST recovery", TestEmployee, startInstant);
+
+        Assert.Equal(1, _database.CloseOpenTimeLogs(
+            new DateTime(2026, 10, 25, 2, 10, 0), endInstant));
+
+        DatabaseHelper.TimeLog log = _database.GetAllTimeLogs().Single(timeLog => timeLog.Id == id);
+        Assert.Equal(TimeSpan.FromMinutes(20), log.Duration);
+    }
+
+    [Fact]
     public void CreateAndSwitchToDatabase_CreatesAnEmptyReadyDatabase()
     {
         string newDatabasePath = Path.Combine(_directory, "new.sqlite");
@@ -272,6 +347,25 @@ public sealed class DatabaseHelperTests : IDisposable
         Assert.Equal(Path.GetFullPath(restoredPath), _database.DatabasePath);
         Assert.Equal("Test", _database.GetCustomer("3003")?.FirstName);
         Assert.Equal("Backup test", Assert.Single(_database.GetAllTimeLogs()).Notes);
+    }
+
+    [Fact]
+    public void ExportDatabaseArchive_PreservesExistingArchiveWhenDatabaseIsInvalid()
+    {
+        string invalidDatabasePath = Path.Combine(_directory, "invalid-source.sqlite");
+        File.WriteAllText(invalidDatabasePath, "not a database");
+        string configurationPath = Path.Combine(_directory, "invalid-source-path.txt");
+        File.WriteAllText(configurationPath, invalidDatabasePath);
+        var invalidDatabase = new DatabaseHelper(databasePathSettingPath: configurationPath);
+
+        string archivePath = Path.Combine(_directory, "existing-backup.zip");
+        byte[] existingArchive = [1, 2, 3, 4];
+        File.WriteAllBytes(archivePath, existingArchive);
+
+        Assert.Throws<SqliteException>(() => invalidDatabase.ExportDatabaseArchive(archivePath));
+
+        Assert.Equal(existingArchive, File.ReadAllBytes(archivePath));
+        Assert.Empty(Directory.GetFiles(_directory, ".existing-backup.zip.*.tmp"));
     }
 
     [Fact]

@@ -54,6 +54,8 @@ Choose a customer in the time-tracking view and start the timer. You can pause a
 
 Entries can also be added manually. The editor has separate date and time fields for the start and end, plus controls for rounding to five-minute increments.
 
+New entries store UTC instants alongside local display times, so durations remain accurate across daylight-saving changes. Existing database entries keep their recorded wall-clock times because their original UTC offsets cannot be reconstructed. A manually entered time that is skipped or repeated during a clock change is rejected when it cannot be mapped to one instant.
+
 When Kronix exits, it closes any running time entry. On the next start, it also checks for unfinished entries and closes them during database recovery.
 
 ### Customers
@@ -96,10 +98,13 @@ Kronix stores data in a local SQLite database. By default, the active database i
 %LOCALAPPDATA%\Kronix\kundenDaten.sqlite
 ```
 
-On first launch, Kronix copies the bundled `Resources\kundenDaten.sqlite` database to the per-user location when available. If no bundled database is found, it creates a new database there. The active database path is saved in:
+On first launch, Debug builds may copy an empty bundled `Resources\kundenDaten.sqlite` into that folder. Release builds and GitHub releases never include a database, hotkey, current employee, or any local file path; if no bundled database is found, Kronix creates a new empty one. Per-machine settings stay only on the PC:
 
 ```text
 %LOCALAPPDATA%\Kronix\database-path.txt
+%LOCALAPPDATA%\Kronix\current-employee.txt
+%LOCALAPPDATA%\Kronix\hotkey.txt
+%LOCALAPPDATA%\Kronix\workstation-id.txt
 ```
 
 The database contains customer records and time entries, including notes and billing status. Use **Settings** to view the active path, select a database, create a new empty database, run an integrity/schema check, or create and restore ZIP backups. Restoring a backup creates a new database file; it does not overwrite the selected destination.
