@@ -1,8 +1,16 @@
 bin/
 obj/
+artifacts/
 /packages/
 riderModule.iml
 /_ReSharper.Caches/
 # Rider workspace settings can contain local paths and machine-specific state.
 /.idea/
 *.sln.DotSettings.user
+# Per-machine Kronix settings and any local databases (never commit these).
+database-path.txt
+current-employee.txt
+hotkey.txt
+workstation-id.txt
+*.sqlite
+!Resources/kundenDaten.sqlite

@@ -9,6 +9,7 @@
         <UseWindowsForms>true</UseWindowsForms>
         <TargetPlatformVersion>10.0</TargetPlatformVersion>
         <ApplicationIcon>Resources\logo3.ico</ApplicationIcon>
+        <DefaultItemExcludes>$(DefaultItemExcludes);**\database-path.txt;**\current-employee.txt;**\hotkey.txt;**\workstation-id.txt</DefaultItemExcludes>
     </PropertyGroup>
 
     <ItemGroup>
@@ -56,10 +57,17 @@
       </Resource>
     </ItemGroup>
 
+    <!-- Local settings and databases never ship. Debug may copy an empty sample DB next to the build; publish never does. -->
+    <ItemGroup>
+      <None Remove="Resources\kundenDaten.sqlite" />
+      <Content Remove="Resources\kundenDaten.sqlite" />
+      <EmbeddedResource Remove="Resources\kundenDaten.sqlite" />
+    </ItemGroup>
     <ItemGroup Condition="'$(Configuration)' == 'Debug'">
         <Content Include="Resources\kundenDaten.sqlite">
             <Link>Resources\kundenDaten.sqlite</Link>
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>Never</CopyToPublishDirectory>
         </Content>
     </ItemGroup>
 

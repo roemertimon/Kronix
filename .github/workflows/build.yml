@@ -42,6 +42,21 @@ jobs:
       - name: Publish self-contained Windows build
         run: dotnet publish Kronix.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false --output artifacts\Kronix-win-x64
 
+      - name: Reject local settings in publish output
+        shell: pwsh
+        run: |
+          $publishDir = "artifacts\Kronix-win-x64"
+          $forbidden = Get-ChildItem $publishDir -Recurse -File -ErrorAction Stop |
+            Where-Object {
+              $_.Extension -in '.sqlite', '.db' -or
+              $_.Name -in @('database-path.txt', 'current-employee.txt', 'hotkey.txt', 'workstation-id.txt', 'kundenDaten.sqlite')
+            }
+          if ($forbidden) {
+            $names = ($forbidden | ForEach-Object { $_.FullName }) -join ', '
+            throw "Publish output contains local data files: $names"
+          }
+          Write-Host "Publish output contains no database or per-machine settings."
+
       - name: Upload publish folder
         uses: actions/upload-artifact@v4
         with:
