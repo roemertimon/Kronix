@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/banner.png" alt="Kronix – track work hours and manage customer records" width="100%">
+</p>
+
 # Kronix
 
 [![Windows build](https://github.com/roemertimon/Kronix/actions/workflows/build.yml/badge.svg)](https://github.com/roemertimon/Kronix/actions/workflows/build.yml)
@@ -20,6 +24,42 @@
 - Back up the SQLite database to a ZIP archive and restore a backup to a new file.
 - Review application events and errors in the built-in log viewer.
 - Keep Kronix available from the Windows notification area.
+
+## Screenshots
+
+The interface is in German. All screenshots use fictitious demo data.
+
+### Time tracking
+
+![Time tracking view with a running timer](docs/screenshots/time-tracking.png)
+
+### Customers
+
+![Customer directory with search](docs/screenshots/customers.png)
+
+### Employees
+
+![Employee list with the current employee selected](docs/screenshots/employees.png)
+
+### Time entries
+
+![Time entries with filters, billing status, and totals](docs/screenshots/time-entries.png)
+
+### Settings and log viewer
+
+![Settings with database, backup, and log options](docs/screenshots/settings.png)
+
+![Built-in log viewer](docs/screenshots/log-viewer.png)
+
+### Dialogs
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/export-options.png" alt="Export options for Excel and PDF" width="280"><br>Export options</td>
+    <td align="center"><img src="docs/screenshots/manual-entry.png" alt="Dialog for adding a time entry manually" width="280"><br>Manual time entry</td>
+    <td align="center"><img src="docs/screenshots/customer-editor.png" alt="Customer editor" width="280"><br>Customer editor</td>
+  </tr>
+</table>
 
 ## Getting started
 
@@ -126,6 +166,7 @@ The log records application events and errors. Kronix rotates the log when it re
 ```text
 Kronix/
 ├── Database/       SQLite access, schema management, backup and restore
+├── docs/           README banner and screenshots
 ├── Logging/        Application logging
 ├── Media/          Application media assets
 ├── Resources/      Icons, images, animation, and bundled sample database
