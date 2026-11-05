@@ -1,12 +1,14 @@
-<p align="center">
-  <img src="docs/banner.png" alt="Kronix – track work hours and manage customer records" width="100%">
-</p>
+<div align="center">
 
-# Kronix
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/logo-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/logo-light.png">
+  <img alt="Kronix" src="docs/logo-light.png" width="200">
+</picture>
 
-[![Windows build](https://github.com/roemertimon/Kronix/actions/workflows/build.yml/badge.svg)](https://github.com/roemertimon/Kronix/actions/workflows/build.yml)
-![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
-![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-orange)
+[![Windows build](https://github.com/roemertimon/Kronix/actions/workflows/build.yml/badge.svg)](https://github.com/roemertimon/Kronix/actions/workflows/build.yml) ![.NET 8](https://img.shields.io/badge/.NET-8-512BD4) ![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-orange)
+
+</div>
 
 **Kronix** is a Windows desktop application for tracking work hours and managing customer records. It includes a customer directory, a timer, searchable time entries, billing status, and Excel and PDF exports.
 
@@ -166,7 +168,7 @@ The log records application events and errors. Kronix rotates the log when it re
 ```text
 Kronix/
 ├── Database/       SQLite access, schema management, backup and restore
-├── docs/           README banner and screenshots
+├── docs/           README logo, social preview banner, and screenshots
 ├── Logging/        Application logging
 ├── Media/          Application media assets
 ├── Resources/      Icons, images, animation, and bundled sample database
