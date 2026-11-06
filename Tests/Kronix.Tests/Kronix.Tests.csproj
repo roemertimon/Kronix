@@ -4,6 +4,7 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
 
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
@@ -20,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Kronix.csproj" />
+    <Using Include="System.IO" />
     <Using Include="Xunit" />
   </ItemGroup>
 

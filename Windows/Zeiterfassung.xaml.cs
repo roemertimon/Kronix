@@ -466,10 +466,10 @@ public partial class Zeiterfassung : UserControl
 
     private void CustomerNumberComboBox_Loaded(object sender, RoutedEventArgs e)
     {
-        _customers.Clear();
-        if (_dbHelper.IsDatabaseInitialized())
+        if (_dbHelper.TryRead(() => _dbHelper.GetAllCustomers(), out List<DatabaseHelper.Customer>? customers))
         {
-            foreach (DatabaseHelper.Customer customer in _dbHelper.GetAllCustomers())
+            _customers.Clear();
+            foreach (DatabaseHelper.Customer customer in customers!)
             {
                 _customers.Add(customer);
             }

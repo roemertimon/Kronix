@@ -27,13 +27,14 @@ public partial class MitarbeiterWindow : UserControl
         _loadingEmployees = true;
         try
         {
+            var employees = _dbHelper.GetAllEmployees();
+            string? currentNumber = _dbHelper.GetCurrentEmployeeNumber();
             _employees.Clear();
-            foreach (DatabaseHelper.Employee employee in _dbHelper.GetAllEmployees())
+            foreach (DatabaseHelper.Employee employee in employees)
             {
                 _employees.Add(employee);
             }
 
-            string? currentNumber = _dbHelper.GetCurrentEmployeeNumber();
             CurrentEmployeeComboBox.ItemsSource = _employees;
             CurrentEmployeeComboBox.SelectedItem = _employees.FirstOrDefault(employee =>
                 string.Equals(employee.EmployeeNumber, currentNumber,
@@ -79,7 +80,11 @@ public partial class MitarbeiterWindow : UserControl
             AppLogger.Error("employees.current_change_failed",
                 "Could not change the current employee selection.", ex);
             ShowError("Aktueller Mitarbeiter nicht geändert", ex.Message);
-            LoadEmployees();
+            _dbHelper.TryRead(() =>
+            {
+                LoadEmployees();
+                return true;
+            }, out _);
         }
     }
 
@@ -111,7 +116,10 @@ public partial class MitarbeiterWindow : UserControl
 
     private void ShowEmployeeEditor(DatabaseHelper.Employee? employee)
     {
-        string? currentNumber = _dbHelper.GetCurrentEmployeeNumber();
+        if (!_dbHelper.TryRead(() => _dbHelper.GetCurrentEmployeeNumber(), out string? currentNumber))
+        {
+            return;
+        }
         var editor = new EmployeeEditorWindow(employee,
             employee is not null && string.Equals(employee.EmployeeNumber, currentNumber,
                 System.StringComparison.OrdinalIgnoreCase))

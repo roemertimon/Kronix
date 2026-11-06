@@ -121,8 +121,8 @@ public partial class DashboardWindow : Window
     {
         bool isReady = _dbHelper.IsDatabaseInitialized();
         DatabaseWarningBorder.Visibility = isReady ? Visibility.Collapsed : Visibility.Visible;
-        DatabaseWarningTextBlock.Text = _dbHelper.InitializationError ??
-                                        "Datenbank nicht verfügbar. Öffnen Sie Einstellungen, um eine Datenbank auszuwählen oder neu anzulegen.";
+        DatabaseWarningTextBlock.Text =
+            $"Datenbank nicht verfügbar. {_dbHelper.InitializationError} Öffnen Sie Einstellungen, um die Datenbank zu prüfen oder auszuwählen.";
     }
 
     private void UpdateTrayMenu()
@@ -270,7 +270,20 @@ public partial class DashboardWindow : Window
 
     private void ShowZeiterfassung()
     {
-        MainContentControl.Content = new Zeiterfassung(_dbHelper);
+        if (_dbHelper.IsDatabaseInitialized())
+        {
+            if (!_dbHelper.TryRead(() => new Zeiterfassung(_dbHelper), out Zeiterfassung? view))
+            {
+                UpdateDatabaseWarning();
+                return;
+            }
+
+            MainContentControl.Content = view;
+        }
+        else
+        {
+            MainContentControl.Content = new Zeiterfassung(_dbHelper);
+        }
         
         ZeiterfassungBtn.IsEnabled = false;
         KundenBtn.IsEnabled = true;
@@ -282,7 +295,13 @@ public partial class DashboardWindow : Window
     private void KundenButton_Click(object sender, RoutedEventArgs e)
     {
         AppLogger.Information("navigation.customers", "Opened the customers tab.");
-        MainContentControl.Content = new KundenWindow(_dbHelper);
+        if (!_dbHelper.TryRead(() => new KundenWindow(_dbHelper), out KundenWindow? view))
+        {
+            UpdateDatabaseWarning();
+            return;
+        }
+
+        MainContentControl.Content = view;
         
         ZeiterfassungBtn.IsEnabled = true;
         KundenBtn.IsEnabled = false;
@@ -294,7 +313,13 @@ public partial class DashboardWindow : Window
     private void MitarbeiterButton_Click(object sender, RoutedEventArgs e)
     {
         AppLogger.Information("navigation.employees", "Opened the employees tab.");
-        MainContentControl.Content = new MitarbeiterWindow(_dbHelper);
+        if (!_dbHelper.TryRead(() => new MitarbeiterWindow(_dbHelper), out MitarbeiterWindow? view))
+        {
+            UpdateDatabaseWarning();
+            return;
+        }
+
+        MainContentControl.Content = view;
 
         ZeiterfassungBtn.IsEnabled = true;
         KundenBtn.IsEnabled = true;
@@ -306,7 +331,13 @@ public partial class DashboardWindow : Window
     private void DatenButton_Click(object sender, RoutedEventArgs e)
     {
         AppLogger.Information("navigation.time_logs", "Opened the time entries tab.");
-        MainContentControl.Content = new DatenWindow(_dbHelper);
+        if (!_dbHelper.TryRead(() => new DatenWindow(_dbHelper), out DatenWindow? view))
+        {
+            UpdateDatabaseWarning();
+            return;
+        }
+
+        MainContentControl.Content = view;
         
         ZeiterfassungBtn.IsEnabled = true;
         KundenBtn.IsEnabled = true;

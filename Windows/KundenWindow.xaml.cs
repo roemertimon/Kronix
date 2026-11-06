@@ -28,8 +28,9 @@ public partial class KundenWindow : UserControl
 
     private void LoadCustomers()
     {
+        var customers = _dbHelper.GetAllCustomers();
         _customers.Clear();
-        foreach (DatabaseHelper.Customer customer in _dbHelper.GetAllCustomers())
+        foreach (DatabaseHelper.Customer customer in customers)
         {
             _customers.Add(customer);
         }
@@ -172,7 +173,13 @@ public partial class KundenWindow : UserControl
 
     private void ShowCustomerEditor(DatabaseHelper.Customer? customer)
     {
-        var editor = new CustomerEditorWindow(customer, templates: customer is null ? _dbHelper.GetAllCustomers() : null)
+        System.Collections.Generic.List<DatabaseHelper.Customer>? templates = null;
+        if (customer is null && !_dbHelper.TryRead(() => _dbHelper.GetAllCustomers(), out templates))
+        {
+            return;
+        }
+
+        var editor = new CustomerEditorWindow(customer, templates: templates)
         {
             Owner = Window.GetWindow(this)
         };

@@ -88,12 +88,12 @@
                 <Border x:Name="DatabaseWarningBorder" Grid.Row="1"
                         Background="#FFF4E5" Padding="18,8"
                         Visibility="Collapsed">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Datenbankproblem" FontWeight="SemiBold"
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Left" Text="Datenbankproblem" FontWeight="SemiBold"
                                    Foreground="#93370D" Margin="0,0,8,0"/>
                         <TextBlock x:Name="DatabaseWarningTextBlock"
                                    Foreground="#93370D" TextWrapping="Wrap"/>
-                    </StackPanel>
+                    </DockPanel>
                 </Border>
             </Grid>
         </Border>

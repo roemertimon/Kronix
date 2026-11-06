@@ -95,12 +95,21 @@ public partial class EinstellungenWindow : UserControl
     private void RefreshDatabaseInfo()
     {
         DatabasePathTextBlock.Text = _dbHelper.DatabasePath;
-        bool isInitialized = _dbHelper.IsDatabaseInitialized();
-        DatabaseSizeTextBlock.Text = FormatBytes(_dbHelper.GetDatabaseSize());
-        if (isInitialized)
+        try
         {
-            TimeLogCountTextBlock.Text = _dbHelper.GetTimeLogCount().ToString("N0");
-            CustomerCountTextBlock.Text = _dbHelper.GetCustomerCount().ToString("N0");
+            DatabaseSizeTextBlock.Text = FormatBytes(_dbHelper.GetDatabaseSize());
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            AppLogger.Error("settings.database_size_failed", "Could not read the database file size.", ex);
+            DatabaseSizeTextBlock.Text = "–";
+        }
+
+        if (_dbHelper.TryRead(() => (_dbHelper.GetTimeLogCount(), _dbHelper.GetCustomerCount()),
+                out var counts))
+        {
+            TimeLogCountTextBlock.Text = counts.Item1.ToString("N0");
+            CustomerCountTextBlock.Text = counts.Item2.ToString("N0");
             DatabaseStatusTextBlock.Text =
                 "Datenbankverbindung ist aktiv. Änderungen werden direkt in dieser Datei gespeichert.";
             DatabaseStatusTextBlock.Foreground = new System.Windows.Media.SolidColorBrush(

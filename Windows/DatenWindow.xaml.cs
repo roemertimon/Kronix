@@ -39,8 +39,9 @@ public partial class DatenWindow : UserControl
 
     private void LoadAllTimeLogs()
     {
+        List<DatabaseHelper.TimeLog> logs = _dbHelper.GetAllTimeLogs();
         _timeLogs.Clear();
-        foreach (DatabaseHelper.TimeLog log in _dbHelper.GetAllTimeLogs())
+        foreach (DatabaseHelper.TimeLog log in logs)
         {
             _timeLogs.Add(log);
         }

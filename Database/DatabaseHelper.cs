@@ -132,6 +132,7 @@ public class DatabaseHelper
         AppLogger.Information("database.startup_open", "Opening the selected database.");
         _reportStatus?.Invoke("Datenbankverbindung wird geprüft …");
         InitializeDatabase();
+        _connectionString = BuildConnectionString(DatabasePath, SqliteOpenMode.ReadWrite);
         if (_isDatabaseInitialized)
         {
             _reportStatus?.Invoke("Offene Zeiteinträge werden geprüft …");
@@ -406,6 +407,29 @@ public class DatabaseHelper
     }
 
     public event EventHandler? DatabaseStateChanged;
+
+    public bool TryRead<T>(Func<T> read, out T? result)
+    {
+        result = default;
+        if (!_isDatabaseInitialized)
+        {
+            return false;
+        }
+
+        try
+        {
+            result = read();
+            return true;
+        }
+        catch (SqliteException ex)
+        {
+            AppLogger.Error("database.read_failed", "Could not read the active database.", ex);
+            _isDatabaseInitialized = false;
+            InitializationError = ex.Message;
+            DatabaseStateChanged?.Invoke(this, EventArgs.Empty);
+            return false;
+        }
+    }
 
     public List<Customer> GetAllCustomers()
     {

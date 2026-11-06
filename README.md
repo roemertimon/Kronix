@@ -130,6 +130,8 @@ On first launch, Debug builds may copy an empty bundled `Resources\kundenDaten.s
 
 The database contains customer records and time entries, including notes and billing status. Use **Settings** to view the active path, select a database, create a new empty database, run an integrity/schema check, or create and restore ZIP backups. Restoring a backup creates a new database file; it does not overwrite the selected destination.
 
+If the selected database is unavailable at startup or while opening a data view, Kronix shows a warning instead of replacing it or opening an empty list. Restore access to the file, then use **Settings** to check it or select another database. An active time entry must be stopped before switching databases.
+
 **Protect your data:** database files contain customer and time-tracking information. Keep backup archives secure and do not publish real customer data. The application log is stored separately and is designed not to include customer records or time-entry notes.
 
 ## Application logs
