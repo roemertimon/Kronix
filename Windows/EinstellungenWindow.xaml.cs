@@ -1,6 +1,10 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Net.Http;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -14,6 +18,10 @@ namespace Kronix.Windows;
 public partial class EinstellungenWindow : UserControl
 {
     private readonly DatabaseHelper _dbHelper;
+    private readonly ReleaseRepositoryStore _repositoryStore = new();
+    private readonly ReleaseUpdateService _updateService = new();
+    private string? _savedRepository;
+    private CancellationTokenSource? _updateCheck;
 
     public EinstellungenWindow(DatabaseHelper dbHelper)
     {
@@ -22,6 +30,143 @@ public partial class EinstellungenWindow : UserControl
         LogPathTextBlock.Text = AppLogger.LogFilePath;
         RefreshDatabaseInfo();
         RefreshHotkeyDisplay();
+        InstalledVersionTextBlock.Text = $"Installierte Version: {ReleaseUpdateService.InstalledVersion ?? "nicht bestimmbar (älterer oder nicht versionierter Build)"}";
+        LatestVersionTextBlock.Text = "Neuestes Release: –";
+        try
+        {
+            string repository = _repositoryStore.Load();
+            if (repository.Length > 0 && !ReleaseUpdateService.TryNormalizeRepository(repository, out repository))
+            {
+                throw new InvalidDataException("Das gespeicherte GitHub-Repository ist ungültig.");
+            }
+
+            _savedRepository = repository;
+            RepositoryTextBox.Text = repository;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            AppLogger.Error("settings.update_repository_read_failed", "Could not read the update repository.", ex);
+            UpdateStatusTextBlock.Text = $"Repository konnte nicht geladen werden: {ex.Message}";
+        }
+    }
+
+    private async void EinstellungenWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (_savedRepository is not null)
+        {
+            await CheckForUpdatesAsync();
+        }
+    }
+
+    private void EinstellungenWindow_Unloaded(object sender, RoutedEventArgs e)
+    {
+        _updateCheck?.Cancel();
+        _updateCheck = null;
+    }
+
+    private async void SaveRepositoryButton_Click(object sender, RoutedEventArgs e)
+    {
+        string repository = RepositoryTextBox.Text.Trim();
+        if (repository.Length > 0 && !ReleaseUpdateService.TryNormalizeRepository(repository, out repository))
+        {
+            UpdateStatusTextBlock.Text = "Bitte ein Repository wie roemertimon/Kronix oder eine GitHub-URL eingeben.";
+            return;
+        }
+
+        try
+        {
+            _repositoryStore.Save(repository);
+            _savedRepository = repository;
+            RepositoryTextBox.Text = repository;
+            await CheckForUpdatesAsync();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            AppLogger.Error("settings.update_repository_save_failed", "Could not save the update repository.", ex);
+            UpdateStatusTextBlock.Text = $"Repository konnte nicht gespeichert werden: {ex.Message}";
+        }
+    }
+
+    private async void CheckUpdatesButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_savedRepository is null)
+        {
+            UpdateStatusTextBlock.Text = "Bitte zuerst ein gültiges Repository speichern.";
+            return;
+        }
+
+        await CheckForUpdatesAsync();
+    }
+
+    private async Task CheckForUpdatesAsync()
+    {
+        _updateCheck?.Cancel();
+        var check = new CancellationTokenSource();
+        _updateCheck = check;
+        string repository = _savedRepository!;
+        LatestVersionTextBlock.Text = "Neuestes Release: –";
+        OpenReleaseButton.IsEnabled = repository.Length > 0;
+        if (repository.Length == 0)
+        {
+            UpdateStatusTextBlock.Text = "Die Updateprüfung ist deaktiviert.";
+            _updateCheck = null;
+            check.Dispose();
+            return;
+        }
+
+        UpdateStatusTextBlock.Text = "GitHub-Release wird geprüft …";
+        try
+        {
+            string latest = await _updateService.GetLatestVersionAsync(repository, check.Token);
+            if (_updateCheck != check) return;
+
+            LatestVersionTextBlock.Text = $"Neuestes Release: {latest}";
+            int? comparison = ReleaseUpdateService.CompareVersions(ReleaseUpdateService.InstalledVersion, latest);
+            UpdateStatusTextBlock.Text = comparison switch
+            {
+                < 0 => "Ein neueres Release ist verfügbar. Du kannst es über GitHub herunterladen.",
+                0 => "Kronix ist auf dem neuesten Stand.",
+                > 0 => "Die installierte Version ist neuer als das letzte veröffentlichte Release.",
+                _ => "Die Versionen können nicht automatisch verglichen werden. Bitte das Release auf GitHub prüfen."
+            };
+        }
+        catch (OperationCanceledException) when (check.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException or JsonException or OperationCanceledException)
+        {
+            if (_updateCheck != check) return;
+            AppLogger.Error("settings.update_check_failed", "Could not check the latest GitHub release.", ex);
+            UpdateStatusTextBlock.Text = $"Updateprüfung fehlgeschlagen: {ex.Message}";
+        }
+        finally
+        {
+            if (_updateCheck == check) _updateCheck = null;
+            check.Dispose();
+        }
+    }
+
+    private void OpenReleaseButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_savedRepository is null || !ReleaseUpdateService.TryNormalizeRepository(_savedRepository, out string repository))
+        {
+            UpdateStatusTextBlock.Text = "Bitte zuerst ein gültiges Repository speichern.";
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = $"https://github.com/{repository}/releases/latest",
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            AppLogger.Error("settings.release_open_failed", "Could not open the GitHub release page.", ex);
+            UpdateStatusTextBlock.Text = $"Release-Seite konnte nicht geöffnet werden: {ex.Message}";
+        }
     }
 
     private void RefreshHotkeyDisplay()

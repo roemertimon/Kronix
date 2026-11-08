@@ -3,7 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignHeight="600" d:DesignWidth="1000">
+             mc:Ignorable="d" d:DesignHeight="600" d:DesignWidth="1000"
+             Loaded="EinstellungenWindow_Loaded" Unloaded="EinstellungenWindow_Unloaded">
     <UserControl.Resources>
         <SolidColorBrush x:Key="NavyBrush" Color="#20364F"/>
         <SolidColorBrush x:Key="MutedBrush" Color="#667085"/>
@@ -28,12 +29,13 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <StackPanel Grid.Row="0" Margin="0,0,0,18">
                 <TextBlock Text="Einstellungen" FontSize="23" FontWeight="SemiBold"
                            Foreground="{StaticResource NavyBrush}"/>
-                <TextBlock Text="Datenbank, Sicherungen, Protokoll und Systemstatus"
+                <TextBlock Text="Datenbank, Sicherungen, Updates und Systemstatus"
                            FontSize="13" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0"/>
             </StackPanel>
 
@@ -153,7 +155,38 @@
                 </StackPanel>
             </Border>
 
-            <Border Grid.Row="5" Background="#EEF7F2" CornerRadius="10"
+            <Border Grid.Row="5" Background="White" CornerRadius="12" Padding="20"
+                    BorderBrush="#E6EBF0" BorderThickness="1" Margin="0,0,0,14">
+                <StackPanel>
+                    <TextBlock Text="Version und Updates" FontSize="17"
+                               FontWeight="SemiBold" Foreground="{StaticResource NavyBrush}"/>
+                    <TextBlock Text="Beim Öffnen der Einstellungen wird das neueste öffentliche GitHub-Release geprüft. Leer lassen, um die Prüfung zu deaktivieren."
+                               FontSize="13" Foreground="{StaticResource MutedBrush}"
+                               TextWrapping="Wrap" Margin="0,6,0,12"/>
+                    <TextBlock Text="GitHub-Repository (Name oder URL)" FontSize="12"
+                               FontWeight="SemiBold" Foreground="#475467" Margin="0,0,0,5"/>
+                    <DockPanel Margin="0,0,0,12">
+                        <Button Content="Speichern und prüfen" DockPanel.Dock="Right"
+                                Style="{StaticResource ActionButton}" Margin="8,0,0,0"
+                                Click="SaveRepositoryButton_Click"/>
+                        <TextBox x:Name="RepositoryTextBox" Height="40" Padding="10,0"
+                                 VerticalContentAlignment="Center" FontSize="13"
+                                 AutomationProperties.Name="GitHub-Repository"/>
+                    </DockPanel>
+                    <TextBlock x:Name="InstalledVersionTextBlock" FontSize="13" Foreground="#344054"/>
+                    <TextBlock x:Name="LatestVersionTextBlock" FontSize="13" Foreground="#344054" Margin="0,4,0,0"/>
+                    <TextBlock x:Name="UpdateStatusTextBlock" FontSize="13" Foreground="{StaticResource MutedBrush}"
+                               TextWrapping="Wrap" Margin="0,8,0,12"/>
+                    <WrapPanel>
+                        <Button x:Name="CheckUpdatesButton" Content="Erneut prüfen" Style="{StaticResource ActionButton}"
+                                Margin="0,0,8,0" Click="CheckUpdatesButton_Click"/>
+                        <Button x:Name="OpenReleaseButton" Content="GitHub-Releases öffnen" Style="{StaticResource ActionButton}"
+                                IsEnabled="False" Click="OpenReleaseButton_Click"/>
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Row="6" Background="#EEF7F2" CornerRadius="10"
                     Padding="14" BorderBrush="#D4EBDD" BorderThickness="1">
                 <TextBlock x:Name="DatabaseStatusTextBlock" Text="Datenbankstatus wird geprüft."
                            FontSize="13" Foreground="#28704D" TextWrapping="Wrap"/>

@@ -11,6 +11,7 @@ riderModule.iml
 database-path.txt
 current-employee.txt
 hotkey.txt
+update-repository.txt
 workstation-id.txt
 *.sqlite
 !Resources/kundenDaten.sqlite

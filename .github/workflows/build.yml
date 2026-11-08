@@ -40,7 +40,18 @@ jobs:
         run: dotnet test Kronix.sln --configuration Debug --no-restore
 
       - name: Publish self-contained Windows build
-        run: dotnet publish Kronix.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false --output artifacts\Kronix-win-x64
+        shell: pwsh
+        run: |
+          $versionArgs = @()
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME.StartsWith('v')) {
+            $version = $env:GITHUB_REF_NAME.Substring(1)
+            $versionArgs = @("-p:Version=$version", "-p:InformationalVersion=release-$version")
+          } elseif ($env:GITHUB_REF -eq 'refs/heads/main' -and $env:GITHUB_EVENT_NAME -eq 'push') {
+            $version = "1.0.$env:GITHUB_RUN_NUMBER"
+            $versionArgs = @("-p:Version=$version", "-p:InformationalVersion=release-$version")
+          }
+          dotnet publish Kronix.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false @versionArgs --output artifacts\Kronix-win-x64
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Reject local settings in publish output
         shell: pwsh
@@ -49,7 +60,7 @@ jobs:
           $forbidden = Get-ChildItem $publishDir -Recurse -File -ErrorAction Stop |
             Where-Object {
               $_.Extension -in '.sqlite', '.db' -or
-              $_.Name -in @('database-path.txt', 'current-employee.txt', 'hotkey.txt', 'workstation-id.txt', 'kundenDaten.sqlite')
+              $_.Name -in @('database-path.txt', 'current-employee.txt', 'hotkey.txt', 'update-repository.txt', 'workstation-id.txt', 'kundenDaten.sqlite')
             }
           if ($forbidden) {
             $names = ($forbidden | ForEach-Object { $_.FullName }) -join ', '

@@ -9,7 +9,7 @@
         <UseWindowsForms>true</UseWindowsForms>
         <TargetPlatformVersion>10.0</TargetPlatformVersion>
         <ApplicationIcon>Resources\logo3.ico</ApplicationIcon>
-        <DefaultItemExcludes>$(DefaultItemExcludes);**\database-path.txt;**\current-employee.txt;**\hotkey.txt;**\workstation-id.txt</DefaultItemExcludes>
+        <DefaultItemExcludes>$(DefaultItemExcludes);**\database-path.txt;**\current-employee.txt;**\hotkey.txt;**\update-repository.txt;**\workstation-id.txt</DefaultItemExcludes>
     </PropertyGroup>
 
     <ItemGroup>

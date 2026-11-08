@@ -25,6 +25,7 @@
 - Export filtered entries to Excel or PDF, with optional customer separation and billing summaries.
 - Back up the SQLite database to a ZIP archive and restore a backup to a new file.
 - Review application events and errors in the built-in log viewer.
+- Check the latest public GitHub release and compare it with the installed release version.
 - Keep Kronix available from the Windows notification area.
 
 ## Screenshots
@@ -92,6 +93,7 @@ The time-entry view supports filtering by:
 - Billed or unbilled status
 
 The view displays the filtered entry count and duration totals. Billing status can be changed from an entry's row, or for all selected entries at once.
+Tables can be sorted by clicking a sortable column heading; drag the subtle mark at a column's right edge to resize it.
 
 | Action | Keyboard shortcut |
 | --- | --- |
@@ -101,6 +103,10 @@ The view displays the filtered entry count and duration totals. Billing status c
 | Delete the selected customer | `Delete` |
 
 Delete actions ask for confirmation. A customer with existing time entries cannot be deleted. Double-clicking a customer row also opens the customer editor.
+
+### Updates
+
+Settings shows the installed release version and automatically checks the latest public GitHub release when opened. The repository defaults to `roemertimon/Kronix` and can be changed using `owner/repository` or a GitHub URL. Clear the field and save to disable checks. Checking contacts GitHub; updates are not downloaded or installed automatically. Older builds without release metadata and non-numeric or prerelease version tags cannot be compared automatically. Release builds created by the workflow embed their release version.
 
 ### Exporting
 
@@ -125,6 +131,7 @@ On first launch, Debug builds may copy an empty bundled `Resources\kundenDaten.s
 %LOCALAPPDATA%\Kronix\database-path.txt
 %LOCALAPPDATA%\Kronix\current-employee.txt
 %LOCALAPPDATA%\Kronix\hotkey.txt
+%LOCALAPPDATA%\Kronix\update-repository.txt
 %LOCALAPPDATA%\Kronix\workstation-id.txt
 ```
 
