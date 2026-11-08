@@ -30,9 +30,6 @@ public partial class DatenWindow : UserControl
         _timeLogsView = CollectionViewSource.GetDefaultView(_timeLogs);
         _timeLogsView.Filter = FilterTimeLog;
         DataGridRecords.ItemsSource = _timeLogsView;
-        DateTime today = DateTime.Today;
-        FromDatePicker.SelectedDate = new DateTime(today.Year, today.Month, 1);
-        ToDatePicker.SelectedDate = today;
         _isViewInitialized = true;
         LoadAllTimeLogs();
     }

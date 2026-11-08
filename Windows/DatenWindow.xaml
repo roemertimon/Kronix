@@ -9,7 +9,15 @@
         <SolidColorBrush x:Key="NavyBrush" Color="#20364F"/>
         <SolidColorBrush x:Key="MutedBrush" Color="#667085"/>
         <ControlTemplate x:Key="HeaderGripperTemplate" TargetType="Thumb">
-            <Border Background="Transparent"/>
+            <Border x:Name="Grip"
+                    Width="2" Height="16"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Background="#B8C2CC" CornerRadius="1"/>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Grip" Property="Background" Value="#667085"/>
+                </Trigger>
+            </ControlTemplate.Triggers>
         </ControlTemplate>
         <Style TargetType="DataGridColumnHeader">
             <Setter Property="Background" Value="#E9EDF1"/>
@@ -21,6 +29,8 @@
             <Setter Property="Padding" Value="14,10"/>
             <Setter Property="BorderBrush" Value="#D0D5DD"/>
             <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="ToolTip"
+                    Value="Zum Sortieren anklicken. Am rechten Spaltenrand ziehen, um die Breite anzupassen."/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="DataGridColumnHeader">
@@ -39,9 +49,20 @@
                                    Cursor="SizeWE" Background="Transparent" BorderThickness="0"
                                    Template="{StaticResource HeaderGripperTemplate}"/>
                         </Grid>
+                        <ControlTemplate.Triggers>
+                            <DataTrigger Binding="{Binding Column.CanUserResize, RelativeSource={RelativeSource TemplatedParent}}"
+                                         Value="False">
+                                <Setter TargetName="PART_RightHeaderGripper"
+                                        Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+        <Style x:Key="UnsortableColumnHeaderStyle" TargetType="DataGridColumnHeader"
+               BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
+            <Setter Property="ToolTip" Value="Aktionen können nicht sortiert werden."/>
         </Style>
         <Style TargetType="DataGridRow">
             <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -450,37 +471,56 @@
 
         <Border Grid.Row="2" Background="White" CornerRadius="12"
                 BorderBrush="#D0D5DD" BorderThickness="1" ClipToBounds="True">
-        <DataGrid x:Name="DataGridRecords" Margin="1"
-                  AutoGenerateColumns="False"
-                  CanUserAddRows="False"
-                  CanUserDeleteRows="False"
-                  IsReadOnly="False"
-                  HeadersVisibility="Column"
-                  GridLinesVisibility="None"
-                  RowHeaderWidth="0"
-                  AlternationCount="2"
-                  FontSize="13"
-                  Background="White"
-                  BorderThickness="0"
-                  SelectionMode="Extended"
-                  SelectionUnit="FullRow"
-                  VerticalScrollBarVisibility="Auto"
-                  HorizontalScrollBarVisibility="Disabled"
-                  SelectionChanged="DataGridRecords_SelectionChanged"
-                  PreviewKeyDown="DataGridRecords_PreviewKeyDown">
-            <DataGrid.Columns>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Border Grid.Row="0" Background="#F8FAFC" Padding="12,5"
+                        BorderBrush="#EAECF0" BorderThickness="0,0,0,1">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <TextBlock Text="↔" FontSize="13" Foreground="#98A2B3"
+                                   Margin="0,0,6,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="Breite ändern: an den markierten Spaltenrändern ziehen"
+                                   FontSize="11" Foreground="#667085"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+                <DataGrid x:Name="DataGridRecords" Grid.Row="1" Margin="1"
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          IsReadOnly="False"
+                          HeadersVisibility="Column"
+                          GridLinesVisibility="None"
+                          RowHeaderWidth="0"
+                          AlternationCount="2"
+                          FontSize="13"
+                          Background="White"
+                          BorderThickness="0"
+                          SelectionMode="Extended"
+                          SelectionUnit="FullRow"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          SelectionChanged="DataGridRecords_SelectionChanged"
+                          PreviewKeyDown="DataGridRecords_PreviewKeyDown">
+                    <DataGrid.Columns>
                 <DataGridTextColumn Header="Kundennummer" Binding="{Binding ClientNumber}"
                                     Width="Auto" MinWidth="125" IsReadOnly="True"
+                                    SortMemberPath="ClientNumber"
                                     ElementStyle="{StaticResource CustomerCellText}"/>
                 <DataGridTextColumn Header="Mitarbeiternummer"
                                     Binding="{Binding EmployeeNumber, TargetNullValue=—}"
                                     Width="Auto" MinWidth="125" IsReadOnly="True"
+                                    SortMemberPath="EmployeeNumber"
                                     ElementStyle="{StaticResource CenteredCellText}"/>
                 <DataGridTextColumn Header="Datum"
                                     Binding="{Binding StartTime, StringFormat={}{0:dd.MM.yyyy}}"
                                     Width="0.95*" MinWidth="100" IsReadOnly="True"
+                                    SortMemberPath="StartTime"
                                     ElementStyle="{StaticResource CenteredCellText}"/>
-                <DataGridTemplateColumn Header="Zeitspanne" Width="1.05*" MinWidth="115">
+                <DataGridTemplateColumn Header="Zeitspanne" Width="1.05*" MinWidth="115"
+                                        SortMemberPath="StartTime">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -497,8 +537,10 @@
                 <DataGridTextColumn Header="Dauer"
                                     Binding="{Binding DurationText}"
                                     Width="0.75*" MinWidth="78" IsReadOnly="True"
+                                    SortMemberPath="Duration"
                                     ElementStyle="{StaticResource CenteredCellText}"/>
-                <DataGridTemplateColumn Header="Tätigkeit / Notiz" Width="1.5*" MinWidth="135">
+                <DataGridTemplateColumn Header="Tätigkeit / Notiz" Width="1.5*" MinWidth="135"
+                                        SortMemberPath="Notes">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <Button Background="Transparent" BorderThickness="0"
@@ -513,7 +555,8 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="Abgerechnet" Width="0.95*" MinWidth="105">
+                <DataGridTemplateColumn Header="Abgerechnet" Width="0.95*" MinWidth="105"
+                                        SortMemberPath="IsBilled">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <Button Style="{StaticResource BillingPillButtonStyle}"
@@ -559,7 +602,9 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="Aktionen" Width="92" MinWidth="92" CanUserResize="False">
+                <DataGridTemplateColumn Header="Aktionen" Width="92" MinWidth="92"
+                                        CanUserResize="False" CanUserSort="False"
+                                        HeaderStyle="{StaticResource UnsortableColumnHeaderStyle}">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
@@ -583,8 +628,9 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-            </DataGrid.Columns>
-        </DataGrid>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
         </Border>
     </Grid>
 </UserControl>
