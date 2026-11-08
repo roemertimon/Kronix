@@ -8,41 +8,6 @@
     <UserControl.Resources>
         <SolidColorBrush x:Key="NavyBrush" Color="#20364F"/>
         <SolidColorBrush x:Key="MutedBrush" Color="#667085"/>
-        <ControlTemplate x:Key="HeaderGripperTemplate" TargetType="Thumb">
-            <Border Background="Transparent"/>
-        </ControlTemplate>
-        <Style TargetType="DataGridColumnHeader">
-            <Setter Property="Background" Value="#E9EDF1"/>
-            <Setter Property="Foreground" Value="#20364F"/>
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="Padding" Value="14,10"/>
-            <Setter Property="HorizontalContentAlignment" Value="Left"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="BorderBrush" Value="#D0D5DD"/>
-            <Setter Property="BorderThickness" Value="0,0,0,1"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="DataGridColumnHeader">
-                        <Grid>
-                            <Border Background="{TemplateBinding Background}"
-                                    BorderBrush="{TemplateBinding BorderBrush}"
-                                    BorderThickness="{TemplateBinding BorderThickness}"
-                                    Padding="{TemplateBinding Padding}">
-                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
-                            </Border>
-                            <Thumb x:Name="PART_LeftHeaderGripper" HorizontalAlignment="Left" Width="6"
-                                   Cursor="SizeWE" Background="Transparent" BorderThickness="0"
-                                   Template="{StaticResource HeaderGripperTemplate}"/>
-                            <Thumb x:Name="PART_RightHeaderGripper" HorizontalAlignment="Right" Width="6"
-                                   Cursor="SizeWE" Background="Transparent" BorderThickness="0"
-                                   Template="{StaticResource HeaderGripperTemplate}"/>
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
         <Style TargetType="DataGridCell">
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -224,7 +189,8 @@
                     <DataGridTextColumn Header="Telefon" Binding="{Binding PhoneNumber}"
                                         Width="1*" MinWidth="82"
                                         ElementStyle="{StaticResource CenteredCellText}"/>
-                    <DataGridTemplateColumn Header="Aktionen" Width="92" MinWidth="92" CanUserResize="False">
+                    <DataGridTemplateColumn Header="Aktionen" Width="92" MinWidth="92"
+                                            CanUserResize="False" CanUserSort="False">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
