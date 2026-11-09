@@ -22,7 +22,7 @@ public partial class Zeiterfassung : UserControl
 
     private DateTime _startTime;           // To store the start time
     private DateTime? _startTimeUtc;
-    private DispatcherTimer _timer;        // Timer to update elapsed time
+    private readonly DispatcherTimer _timer;        // Timer to update elapsed time
     private readonly DispatcherTimer _notesSaveTimer;
     private int? _activeTimeLogId;
     private bool _updatingNotes;
@@ -318,8 +318,6 @@ public partial class Zeiterfassung : UserControl
         EditStartTimeButton.Visibility = Visibility.Collapsed;
         ElapsedTimeTextBlock.Text = "--:--:--";
         NotesTextBox.Clear();
-        _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        _timer.Tick += UpdateElapsedTime;
 
         // Confirm the stop and save to the user
         new KronixToastWindow("Zeiterfassung gespeichert",

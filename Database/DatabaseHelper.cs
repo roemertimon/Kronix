@@ -1780,9 +1780,9 @@ public class DatabaseHelper
 
         if (localTimeZone.IsAmbiguousTime(unspecifiedTime))
         {
-            throw new ArgumentException(
-                "Diese Ortszeit tritt wegen der Zeitumstellung zweimal auf und kann nicht eindeutig zugeordnet werden.",
-                nameof(localTime));
+            TimeSpan[] offsets = localTimeZone.GetAmbiguousTimeOffsets(unspecifiedTime);
+            TimeSpan offset = offsets.Length > 0 ? offsets[0] : localTimeZone.GetUtcOffset(unspecifiedTime);
+            return new DateTimeOffset(unspecifiedTime, offset).UtcDateTime;
         }
 
         return TimeZoneInfo.ConvertTimeToUtc(unspecifiedTime, localTimeZone);

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
@@ -48,17 +49,19 @@ public partial class KundenWindow : UserControl
             return false;
         }
 
-        string search = SearchTextBox.Text.Trim();
-        if (search.Length == 0)
+        if (string.IsNullOrEmpty(_cachedSearch))
         {
             return true;
         }
 
-        return new[]
-        {
-            customer.ClientNumber, customer.FirstName, customer.LastName, customer.Company,
-            customer.Street, customer.PostalCode, customer.City, customer.PhoneNumber
-        }.Any(value => value.Contains(search, System.StringComparison.CurrentCultureIgnoreCase));
+        return (customer.ClientNumber?.Contains(_cachedSearch, StringComparison.CurrentCultureIgnoreCase) ?? false) ||
+               (customer.FirstName?.Contains(_cachedSearch, StringComparison.CurrentCultureIgnoreCase) ?? false) ||
+               (customer.LastName?.Contains(_cachedSearch, StringComparison.CurrentCultureIgnoreCase) ?? false) ||
+               (customer.Company?.Contains(_cachedSearch, StringComparison.CurrentCultureIgnoreCase) ?? false) ||
+               (customer.Street?.Contains(_cachedSearch, StringComparison.CurrentCultureIgnoreCase) ?? false) ||
+               (customer.PostalCode?.Contains(_cachedSearch, StringComparison.CurrentCultureIgnoreCase) ?? false) ||
+               (customer.City?.Contains(_cachedSearch, StringComparison.CurrentCultureIgnoreCase) ?? false) ||
+               (customer.PhoneNumber?.Contains(_cachedSearch, StringComparison.CurrentCultureIgnoreCase) ?? false);
     }
 
     private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -66,6 +69,7 @@ public partial class KundenWindow : UserControl
         SearchPlaceholderTextBlock.Visibility = string.IsNullOrEmpty(SearchTextBox.Text)
             ? Visibility.Visible
             : Visibility.Collapsed;
+        _cachedSearch = SearchTextBox.Text.Trim();
         _customersView.Refresh();
         UpdateCustomerCount();
     }

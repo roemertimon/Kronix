@@ -130,26 +130,26 @@ public partial class DatenWindow : UserControl
             return false;
         }
 
-        string[] customerNumbers = CustomerFilterTextBox.Text
-            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-        if (customerNumbers.Length > 0 &&
-            !customerNumbers.Contains(log.ClientNumber, StringComparer.OrdinalIgnoreCase))
+        if (_cachedCustomerFilters.Length > 0 &&
+            !_cachedCustomerFilters.Contains(log.ClientNumber, StringComparer.OrdinalIgnoreCase))
         {
             return false;
         }
 
-        DateTime? fromDate = FromDatePicker.SelectedDate?.Date;
-        DateTime? toDate = ToDatePicker.SelectedDate?.Date;
-        bool statusMatches = AllStatusRadioButton.IsChecked == true ||
-                             (OpenStatusRadioButton.IsChecked == true && !log.IsBilled) ||
-                             (BilledStatusRadioButton.IsChecked == true && log.IsBilled);
+        bool statusMatches = _cachedStatusFilter switch
+        {
+            1 => !log.IsBilled,
+            2 => log.IsBilled,
+            _ => true
+        };
+
         if (log.StartTime is not DateTime startTime)
         {
-            return !fromDate.HasValue && !toDate.HasValue && statusMatches;
+            return !_cachedFromDate.HasValue && !_cachedToDate.HasValue && statusMatches;
         }
 
-        return (!fromDate.HasValue || startTime.Date >= fromDate.Value) &&
-               (!toDate.HasValue || startTime.Date <= toDate.Value) &&
+        return (!_cachedFromDate.HasValue || startTime.Date >= _cachedFromDate.Value) &&
+               (!_cachedToDate.HasValue || startTime.Date <= _cachedToDate.Value) &&
                statusMatches;
     }
 

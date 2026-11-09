@@ -453,6 +453,40 @@ public sealed class DatabaseHelperTests : IDisposable
         Assert.Contains("IX_TimeLogs_EmployeeNumber", indexes);
     }
 
+    [Fact]
+    public void AddManualTimeLog_AmbiguousDaylightSavingTime_DoesNotThrow()
+    {
+        TimeZoneInfo tz = TimeZoneInfo.Local;
+        if (!tz.SupportsDaylightSavingTime)
+        {
+            return;
+        }
+
+        int year = DateTime.Today.Year;
+        DateTime? ambiguousTime = null;
+        for (DateTime day = new DateTime(year, 10, 20); day <= new DateTime(year, 11, 10); day = day.AddDays(1))
+        {
+            for (int hour = 0; hour < 5; hour++)
+            {
+                DateTime dt = new DateTime(day.Year, day.Month, day.Day, hour, 30, 0, DateTimeKind.Unspecified);
+                if (tz.IsAmbiguousTime(dt))
+                {
+                    ambiguousTime = dt;
+                    break;
+                }
+            }
+            if (ambiguousTime.HasValue) break;
+        }
+
+        if (ambiguousTime.HasValue)
+        {
+            DateTime start = ambiguousTime.Value.AddMinutes(-15);
+            DateTime end = ambiguousTime.Value;
+            int id = _database.AddManualTimeLog("1001", start, end, "Ambiguous DST test", TestEmployee);
+            Assert.True(id > 0);
+        }
+    }
+
     public void Dispose()
     {
         SqliteConnection.ClearAllPools();
