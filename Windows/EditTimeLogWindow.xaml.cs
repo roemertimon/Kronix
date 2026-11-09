@@ -72,7 +72,7 @@ public partial class EditTimeLogWindow : Window
 
         if (IsOpenEntry)
         {
-            if (startTime > DateTime.Now)
+            if (startTime > DateTime.Now.AddMinutes(5))
             {
                 ShowValidationError("Die Startzeit darf nicht in der Zukunft liegen.");
                 return;
@@ -97,13 +97,13 @@ public partial class EditTimeLogWindow : Window
             return;
         }
 
-        if (endTime > DateTime.Now)
+        if (endTime > DateTime.Now.AddMinutes(5))
         {
             ShowValidationError("Die Endzeit darf nicht in der Zukunft liegen.");
             return;
         }
 
-        if (startTime > DateTime.Now)
+        if (startTime > DateTime.Now.AddMinutes(5))
         {
             ShowValidationError("Die Startzeit darf nicht in der Zukunft liegen.");
             return;

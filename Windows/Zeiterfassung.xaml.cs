@@ -39,7 +39,8 @@ public partial class Zeiterfassung : UserControl
         _customersView.Filter = FilterCustomerSuggestion;
         CustomerNumberComboBox.ItemsSource = _customersView;
 
-        _timer = new DispatcherTimer();
+        _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _timer.Tick += UpdateElapsedTime;
         _notesSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
         _notesSaveTimer.Tick += NotesSaveTimer_Tick;
         Unloaded += Zeiterfassung_Unloaded;
@@ -76,8 +77,7 @@ public partial class Zeiterfassung : UserControl
         StartButton.IsEnabled = false;
         PauseButton.IsEnabled = true;
         StopButton.IsEnabled = true;
-        _timer.Interval = TimeSpan.FromSeconds(1);
-        _timer.Tick += UpdateElapsedTime;
+
         _timer.Start();
         UpdateElapsedTime(null, EventArgs.Empty);
     }
@@ -199,12 +199,7 @@ public partial class Zeiterfassung : UserControl
         StopButton.IsEnabled = true;
         
         // Initialize and start the timer for elapsed time
-        _timer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromSeconds(1)
-        };
-            
-        _timer.Tick += UpdateElapsedTime;
+
         _timer.Start();
         
         // Set the start time in StartTimeTextBlock
@@ -323,7 +318,8 @@ public partial class Zeiterfassung : UserControl
         EditStartTimeButton.Visibility = Visibility.Collapsed;
         ElapsedTimeTextBlock.Text = "--:--:--";
         NotesTextBox.Clear();
-        _timer = new DispatcherTimer();
+        _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _timer.Tick += UpdateElapsedTime;
 
         // Confirm the stop and save to the user
         new KronixToastWindow("Zeiterfassung gespeichert",

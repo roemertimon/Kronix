@@ -22,6 +22,10 @@ public partial class DatenWindow : UserControl
     private readonly ObservableCollection<DatabaseHelper.TimeLog> _timeLogs = new();
     private readonly ICollectionView _timeLogsView;
     private bool _isViewInitialized;
+    private string[] _cachedCustomerFilters = Array.Empty<string>();
+    private DateTime? _cachedFromDate;
+    private DateTime? _cachedToDate;
+    private int _cachedStatusFilter;
 
     public DatenWindow(DatabaseHelper dbHelper)
     {
@@ -34,7 +38,17 @@ public partial class DatenWindow : UserControl
         LoadAllTimeLogs();
     }
 
-    private void LoadAllTimeLogs()
+    private void UpdateFilterCache()
+    {
+        _cachedCustomerFilters = CustomerFilterTextBox.Text
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        _cachedFromDate = FromDatePicker.SelectedDate?.Date;
+        _cachedToDate = ToDatePicker.SelectedDate?.Date;
+        _cachedStatusFilter = OpenStatusRadioButton.IsChecked == true ? 1
+            : BilledStatusRadioButton.IsChecked == true ? 2 : 0;
+    }
+
+    public void LoadAllTimeLogs()
     {
         List<DatabaseHelper.TimeLog> logs = _dbHelper.GetAllTimeLogs();
         _timeLogs.Clear();
@@ -43,6 +57,7 @@ public partial class DatenWindow : UserControl
             _timeLogs.Add(log);
         }
 
+        UpdateFilterCache();
         _timeLogsView.Refresh();
         UpdateResultsCount();
     }
@@ -57,6 +72,7 @@ public partial class DatenWindow : UserControl
             return false;
         }
 
+        UpdateFilterCache();
         _timeLogsView.Refresh();
         UpdateResultsCount();
         return true;
@@ -91,6 +107,7 @@ public partial class DatenWindow : UserControl
             return;
         }
 
+        UpdateFilterCache();
         _timeLogsView.Refresh();
         UpdateResultsCount();
     }
@@ -101,6 +118,7 @@ public partial class DatenWindow : UserControl
         FromDatePicker.SelectedDate = null;
         ToDatePicker.SelectedDate = null;
         AllStatusRadioButton.IsChecked = true;
+        UpdateFilterCache();
         _timeLogsView.Refresh();
         UpdateResultsCount();
     }
@@ -184,7 +202,8 @@ public partial class DatenWindow : UserControl
         {
             _dbHelper.UpdateTimeLogBilled(log.Id, isBilled);
             log.IsBilled = isBilled;
-            _timeLogsView.Refresh();
+            UpdateFilterCache();
+        _timeLogsView.Refresh();
             UpdateResultsCount();
             AppLogger.Information("timelog.billing_changed",
                 $"Changed the billed state of one time entry to {isBilled}.");
@@ -201,13 +220,13 @@ public partial class DatenWindow : UserControl
     private void DataGridRecords_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         int selectedCount = DataGridRecords.SelectedItems.Count;
-        Visibility bulkActionVisibility = selectedCount > 1
+        Visibility bulkActionVisibility = selectedCount > 0
             ? Visibility.Visible
             : Visibility.Collapsed;
         RemoveSelectedButton.Visibility = bulkActionVisibility;
         MarkSelectedBilledButton.Visibility = bulkActionVisibility;
         MarkSelectedUnbilledButton.Visibility = bulkActionVisibility;
-        RemoveSelectedButton.Content = selectedCount > 0
+        RemoveSelectedButton.Content = selectedCount > 1
             ? $"Entfernen ({selectedCount})"
             : "Entfernen";
     }
@@ -223,7 +242,7 @@ public partial class DatenWindow : UserControl
         List<DatabaseHelper.TimeLog> selectedLogs = DataGridRecords.SelectedItems
             .Cast<DatabaseHelper.TimeLog>()
             .ToList();
-        if (selectedLogs.Count < 2)
+        if (selectedLogs.Count == 0)
         {
             return;
         }
@@ -236,7 +255,8 @@ public partial class DatenWindow : UserControl
                 log.IsBilled = isBilled;
             }
 
-            _timeLogsView.Refresh();
+            UpdateFilterCache();
+        _timeLogsView.Refresh();
             UpdateResultsCount();
             AppLogger.Information("timelog.bulk_billing_changed",
                 $"Set {selectedLogs.Count} selected time entries to billed={isBilled}.");
@@ -355,7 +375,8 @@ public partial class DatenWindow : UserControl
         {
             _dbHelper.DeleteTimeLog(log.Id);
             _timeLogs.Remove(log);
-            _timeLogsView.Refresh();
+            UpdateFilterCache();
+        _timeLogsView.Refresh();
             UpdateResultsCount();
             AppLogger.Information("timelog.deleted", "Deleted a time entry.");
         }
@@ -405,7 +426,8 @@ public partial class DatenWindow : UserControl
                 _timeLogs.Remove(log);
             }
 
-            _timeLogsView.Refresh();
+            UpdateFilterCache();
+        _timeLogsView.Refresh();
             UpdateResultsCount();
             AppLogger.Information("timelog.bulk_deleted",
                 $"Deleted {selectedLogs.Count} selected time entries.");
@@ -470,7 +492,7 @@ public partial class DatenWindow : UserControl
             EndTime = log.EndTime,
             StartTimeUtc = log.StartTimeUtc,
             EndTimeUtc = log.EndTimeUtc,
-            IsBilled = options.MarkExportedAsBilled || log.IsBilled,
+            IsBilled = (options.MarkExportedAsBilled && log.EndTime is not null) || log.IsBilled,
             Notes = log.Notes
         }).ToList();
 
@@ -500,12 +522,14 @@ public partial class DatenWindow : UserControl
             {
                 try
                 {
-                    _dbHelper.MarkTimeLogsBilled(filteredLogs.Select(log => log.Id));
-                    foreach (DatabaseHelper.TimeLog log in filteredLogs)
+                    var completedLogs = filteredLogs.Where(log => log.EndTime is not null).ToList();
+                    _dbHelper.MarkTimeLogsBilled(completedLogs.Select(log => log.Id));
+                    foreach (DatabaseHelper.TimeLog log in completedLogs)
                     {
                         log.IsBilled = true;
                     }
-                    _timeLogsView.Refresh();
+                    UpdateFilterCache();
+        _timeLogsView.Refresh();
                     UpdateResultsCount();
                 }
                 catch (Exception ex)
@@ -521,7 +545,7 @@ public partial class DatenWindow : UserControl
             string completionMessage = $"{filteredLogs.Count} Einträge wurden exportiert.";
             if (options.MarkExportedAsBilled)
             {
-                completionMessage += "\nAlle exportierten Einträge wurden als abgerechnet markiert.";
+                completionMessage += "\nAlle abgeschlossenen Einträge wurden als abgerechnet markiert.";
             }
 
             AppLogger.Information("export.completed",
