@@ -398,6 +398,16 @@ public class DatabaseHelper
             migration.ExecuteNonQuery();
         }
 
+        using (var command = new SqliteCommand(@"
+            CREATE INDEX IF NOT EXISTS IX_Customers_ClientNumber ON Customers (ClientNumber COLLATE NOCASE);
+            CREATE INDEX IF NOT EXISTS IX_TimeLogs_ClientNumber ON TimeLogs (ClientNumber COLLATE NOCASE);
+            CREATE INDEX IF NOT EXISTS IX_TimeLogs_StartTime ON TimeLogs (StartTime DESC);
+            CREATE INDEX IF NOT EXISTS IX_TimeLogs_OpenLogs ON TimeLogs (WorkstationId, EmployeeNumber) WHERE EndTime IS NULL;
+            CREATE INDEX IF NOT EXISTS IX_TimeLogs_EmployeeNumber ON TimeLogs (EmployeeNumber COLLATE NOCASE);", connection))
+        {
+            command.ExecuteNonQuery();
+        }
+
         AppLogger.Information("database.schema_ready", "Database schema check completed.");
     }
 
@@ -869,7 +879,7 @@ public class DatabaseHelper
         }
 
         startTime = TruncateToMinute(startTime);
-        if (startTime > DateTime.Now || endTime > DateTime.Now)
+        if (startTime > DateTime.Now.AddMinutes(5) || endTime > DateTime.Now.AddMinutes(5))
         {
             throw new ArgumentException("Ein manueller Zeiteintrag darf nicht in der Zukunft liegen.");
         }
@@ -908,7 +918,7 @@ public class DatabaseHelper
 
     public DateTime UpdateOpenTimeLogStartTime(int timeLogId, DateTime startTime, string? notes = null)
     {
-        if (startTime > DateTime.Now)
+        if (startTime > DateTime.Now.AddMinutes(5))
         {
             throw new ArgumentException("Die Startzeit darf nicht in der Zukunft liegen.", nameof(startTime));
         }
@@ -1171,7 +1181,7 @@ public class DatabaseHelper
             throw new ArgumentException("Die Kundennummer darf nicht leer sein.", nameof(clientNumber));
         }
 
-        if (startTime > DateTime.Now || endTime > DateTime.Now)
+        if (startTime > DateTime.Now.AddMinutes(5) || endTime > DateTime.Now.AddMinutes(5))
         {
             throw new ArgumentException("Ein abgeschlossener Zeiteintrag darf nicht in der Zukunft liegen.");
         }

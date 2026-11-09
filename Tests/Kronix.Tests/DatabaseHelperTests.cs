@@ -406,6 +406,53 @@ public sealed class DatabaseHelperTests : IDisposable
         Assert.Equal(originalPath, _database.DatabasePath);
     }
 
+    [Fact]
+    public void AddManualTimeLog_AcceptsEndTimeWithinRoundingWindow_AndRejectsFarFuture()
+    {
+        DateTime start = DateTime.Now.AddMinutes(-10);
+        DateTime endWithinWindow = DateTime.Now.AddMinutes(2);
+        int id = _database.AddManualTimeLog("1001", start, endWithinWindow, "Tolerance test", TestEmployee);
+        Assert.True(id > 0);
+
+        DateTime farFuture = DateTime.Now.AddMinutes(15);
+        Assert.Throws<ArgumentException>(() =>
+            _database.AddManualTimeLog("1001", start, farFuture, "Invalid test", TestEmployee));
+    }
+
+    [Fact]
+    public void UpdateTimeLog_AcceptsRoundedEndTime_AndRejectsFarFuture()
+    {
+        DateTime start = DateTime.Today.AddDays(-1).AddHours(9);
+        int id = _database.AddManualTimeLog("1001", start, start.AddMinutes(15), "Initial", TestEmployee);
+
+        DateTime roundedNow = DateTime.Now.AddMinutes(3);
+        _database.UpdateTimeLog(id, "1001", DateTime.Now.AddMinutes(-5), roundedNow, "Updated");
+
+        DateTime farFuture = DateTime.Now.AddMinutes(15);
+        Assert.Throws<ArgumentException>(() =>
+            _database.UpdateTimeLog(id, "1001", start, farFuture, "Far future"));
+    }
+
+    [Fact]
+    public void Schema_CreatesPerformanceIndexes()
+    {
+        using var connection = new SqliteConnection($"Data Source={_database.DatabasePath}");
+        connection.Open();
+        using var command = new SqliteCommand("SELECT name FROM sqlite_master WHERE type = 'index'", connection);
+        using var reader = command.ExecuteReader();
+        var indexes = new List<string>();
+        while (reader.Read())
+        {
+            indexes.Add(reader.GetString(0));
+        }
+
+        Assert.Contains("IX_Customers_ClientNumber", indexes);
+        Assert.Contains("IX_TimeLogs_ClientNumber", indexes);
+        Assert.Contains("IX_TimeLogs_StartTime", indexes);
+        Assert.Contains("IX_TimeLogs_OpenLogs", indexes);
+        Assert.Contains("IX_TimeLogs_EmployeeNumber", indexes);
+    }
+
     public void Dispose()
     {
         SqliteConnection.ClearAllPools();
