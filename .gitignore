@@ -15,3 +15,5 @@ update-repository.txt
 workstation-id.txt
 *.sqlite
 !Resources/kundenDaten.sqlite
+Output/
+TestData/
