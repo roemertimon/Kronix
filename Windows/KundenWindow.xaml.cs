@@ -15,6 +15,7 @@ public partial class KundenWindow : UserControl
     private readonly DatabaseHelper _dbHelper;
     private readonly ObservableCollection<DatabaseHelper.Customer> _customers = new();
     private readonly ICollectionView _customersView;
+    private string _cachedSearch = string.Empty;
 
     public KundenWindow(DatabaseHelper dbHelper)
     {
@@ -26,8 +27,9 @@ public partial class KundenWindow : UserControl
         LoadCustomers();
     }
 
-    private void LoadCustomers()
+    public void LoadCustomers()
     {
+        _cachedSearch = SearchTextBox.Text.Trim();
         var customers = _dbHelper.GetAllCustomers();
         _customers.Clear();
         foreach (DatabaseHelper.Customer customer in customers)

@@ -182,7 +182,10 @@ public partial class DashboardWindow : Window
                 WinForms.ToolTipIcon.Info);
             AppLogger.Information("timelog.stopped_from_tray",
                 "An active time-tracking entry was stopped from the system tray.");
-            ShowZeiterfassung();
+            if (MainContentControl.Content is Zeiterfassung)
+            {
+                ShowZeiterfassung();
+            }
             UpdateTrayMenu();
         }
         catch (Exception ex)

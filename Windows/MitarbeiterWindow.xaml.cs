@@ -22,7 +22,7 @@ public partial class MitarbeiterWindow : UserControl
         LoadEmployees();
     }
 
-    private void LoadEmployees()
+    public void LoadEmployees()
     {
         _loadingEmployees = true;
         try

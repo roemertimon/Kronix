@@ -119,6 +119,11 @@ public sealed class ReleaseUpdateService
 
         using HttpResponseMessage response = await _client.GetAsync(
             $"https://api.github.com/repos/{normalized}/releases/latest", cancellationToken);
+        if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+        {
+            throw new HttpRequestException("GitHub-API-Ratenlimit erreicht. Bitte später erneut versuchen.", null, System.Net.HttpStatusCode.Forbidden);
+        }
+
         response.EnsureSuccessStatusCode();
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         using JsonDocument document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
